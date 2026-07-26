@@ -55,7 +55,41 @@ const SYNONYM_GROUPS = [
   ["modesty", "haya", "حیا"],
   ["fate", "destiny", "qadr", "predestination", "تقدیر"],
   ["funeral", "janazah", "janaza", "جنازہ"],
-  ["gift", "gifts", "hadiya", "تحفہ", "ہدیہ"]
+  ["gift", "gifts", "hadiya", "تحفہ", "ہدیہ"],
+
+  // People. Translations spell these many ways, so a search for one spelling
+  // has to reach the others — "fatima" must find "Fatimah", "faatima", فاطمہ.
+  ["fatima", "fatimah", "faatima", "fatema", "zahra", "zahraa", "فاطمہ", "زہرا"],
+  ["aisha", "aishah", "ayesha", "aaisha", "عائشہ"],
+  ["khadija", "khadijah", "khadeeja", "خدیجہ"],
+  ["ali", "aly", "علی", "مرتضیٰ"],
+  ["hasan", "hassan", "حسن"],
+  ["husayn", "hussain", "husain", "hussein", "حسین"],
+  ["umar", "omar", "عمر", "فاروق"],
+  ["uthman", "usman", "othman", "عثمان"],
+  ["bakr", "abubakr", "siddiq", "ابوبکر", "صدیق"],
+  ["abbas", "عباس"],
+  ["jafar", "jaffar", "جعفر"],
+  ["sadiq", "صادق"],
+  ["baqir", "باقر"],
+  ["rida", "ridha", "reza", "رضا"],
+  ["mahdi", "مہدی"],
+  ["ibrahim", "abraham", "ابراہیم"],
+  ["musa", "moses", "موسیٰ"],
+  ["isa", "jesus", "عیسیٰ"],
+  ["maryam", "mary", "مریم"],
+  ["yusuf", "joseph", "یوسف"],
+  ["adam", "آدم"],
+  ["nuh", "noah", "نوح"],
+  ["jibril", "gabriel", "jibreel", "جبرائیل"],
+  ["madina", "medina", "madinah", "مدینہ"],
+  ["makkah", "mecca", "makka", "مکہ"],
+  ["karbala", "کربلا"],
+  ["badr", "بدر"],
+  ["uhud", "احد"],
+  ["khaybar", "khaibar", "خیبر"],
+  ["ghadir", "غدیر"],
+  ["ahlulbayt", "ahlalbayt", "ahlbayt", "اہلبیت"]
 ];
 
 // Words that carry no meaning in a hadith query ("hadith about marriage" → "marriage").
@@ -64,7 +98,13 @@ const STOPWORDS = new Set([
   "what", "who", "how", "when", "with", "does", "do", "did", "say", "says", "said",
   "about", "regarding", "concerning", "islam", "islamic",
   "hadith", "hadees", "hadis", "ahadith", "narration", "narrations",
-  "حدیث", "احادیث", "بارے", "میں", "کے", "کی", "کا"
+  "حدیث", "احادیث", "بارے", "میں", "کے", "کی", "کا",
+  // Honorifics: respectful in the query, absent from the translations. Left in,
+  // they made every name search fail, because each term had to match.
+  "hazrat", "hadhrat", "hadrat", "hz", "sayyidina", "sayyiduna", "sayyida",
+  "sayyidah", "bibi", "janab", "maulana", "allama", "shaykh", "sheikh",
+  "saw", "pbuh", "as", "ra", "swt",
+  "حضرت", "بی", "جناب", "مولانا", "علامہ"
 ]);
 
 /* ---------- normalization ---------- */
@@ -162,7 +202,9 @@ function expandQuery(rawQuery) {
     const addVariant = (t, weight) => {
       const norm = smartNormalize(t);
       if (!variants.has(norm) || variants.get(norm).weight < weight) {
-        variants.set(norm, { weight, whole: !isArabicScript(norm) && norm.length <= 4 });
+        // Numbers must match whole: hadith 506 is not a hit for a search for 5063.
+        const numeric = /^\d+$/.test(norm);
+        variants.set(norm, { weight, whole: numeric || (!isArabicScript(norm) && norm.length <= 4) });
       }
     };
     addVariant(tok, 3);
@@ -203,10 +245,14 @@ function countOccurrences(text, term, whole) {
   return count;
 }
 
-// texts: array of normalized strings (e.g. [english, urdu]). Returns 0 if any
-// concept group fails to match; otherwise a relevance score.
-function smartMatch(texts, expanded) {
+// texts: array of normalized strings (e.g. [english, urdu, reference]).
+// Strict (default): every concept must appear, so results are precise.
+// Relaxed: any one concept is enough, ranked by how many matched — used as a
+// second pass when the strict pass finds nothing, so a query like a person's
+// name plus an event still returns the closest narrations instead of "0 found".
+function smartMatch(texts, expanded, relaxed) {
   let score = 0;
+  let matchedGroups = 0;
   for (const group of expanded.groups) {
     let groupScore = 0;
     for (const v of group) {
@@ -216,9 +262,11 @@ function smartMatch(texts, expanded) {
         if (c) groupScore = Math.max(groupScore, Math.min(c, 4) * v.weight);
       }
     }
-    if (!groupScore) return 0;
-    score += groupScore;
+    if (groupScore) { matchedGroups++; score += groupScore; }
+    else if (!relaxed) return 0;
   }
+  if (!matchedGroups) return 0;
+  if (relaxed) score += matchedGroups * 8; // prefer narrations covering more of the query
   if (expanded.tokens.length > 1) {
     for (const text of texts) if (text && text.includes(expanded.phrase)) { score += 10; break; }
   }

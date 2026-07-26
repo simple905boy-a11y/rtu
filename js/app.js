@@ -256,18 +256,23 @@ async function ensureUrdu(col, entry) {
   }
 }
 
-function scoreSunni(entry, expanded, useUrdu) {
+function scoreSunni(col, entry, expanded, useUrdu, relaxed) {
   const out = [];
   const hs = entry.hadiths;
   for (let i = 0; i < hs.length; i++) {
     const h = hs[i];
     if (h._n === undefined) h._n = smartNormalize(h.text);
+    // Searchable reference, so "5063" or "bukhari 5063" finds the narration itself.
+    if (h._nr === undefined) {
+      h._nr = smartNormalize(`${col.id} ${col.name} ${col.urduName || ""} ${h.hadithnumber}` +
+        (h.reference ? ` book ${h.reference.book} hadith ${h.reference.hadith}` : ""));
+    }
     let urduText = null;
     if (useUrdu && entry.urdu) {
       urduText = entry.urdu.get(String(h.hadithnumber)) || null;
       if (urduText && h._nu === undefined) h._nu = smartNormalize(urduText);
     }
-    const s = smartMatch([h._n, urduText ? h._nu : null], expanded);
+    const s = smartMatch([h._n, urduText ? h._nu : null, h._nr], expanded, relaxed);
     if (s > 0) out.push({ idx: i, kw: s });
   }
   return out;
@@ -308,13 +313,17 @@ function mergeScores(kwArr, semMap) {
 }
 
 /* ---------- Shia: local mirror (pro index) or live Thaqalayn API ---------- */
-function scoreShiaLocal(docs, expanded) {
+function scoreShiaLocal(docs, expanded, relaxed) {
   const out = [];
   for (let i = 0; i < docs.length; i++) {
     const d = docs[i];
     if (d._n === undefined) d._n = smartNormalize(d.text);
     if (d._na === undefined) d._na = smartNormalize(d.arabic);
-    const s = smartMatch([d._n, d._na], expanded);
+    if (d._nr === undefined) {
+      d._nr = smartNormalize(`${d.collection} ${d.number} ${d.chapter || ""} ${d.category || ""}` +
+        (d.book != null ? ` volume ${d.book}` : ""));
+    }
+    const s = smartMatch([d._n, d._na, d._nr], expanded, relaxed);
     if (s > 0) out.push({ idx: i, kw: s });
   }
   return out;
@@ -386,23 +395,33 @@ async function runSearch(query) {
     }
   }
 
+  const loadedSunni = [];
   if (wantSunni) {
     for (const col of selectedSunni()) {
       try {
         const entry = await ensureEdition(col);
         if (useUrdu) await ensureUrdu(col, entry);
         if (token !== searchToken) return; // superseded by a newer search
-        expanded = expandQuery(query);     // re-expand now that vocabulary includes this corpus
-        const kw = scoreSunni(entry, expanded, useUrdu);
-        const sem = await semanticFor(col.id, entry.hadiths.length);
-        const merged = mergeScores(kw, sem);
-        const hits = merged.map((m) => buildSunniHit(col, entry, m.idx, m.score, m.sim, useUrdu));
-        if (hits.length) sunniGroups.push({ col, hits, urduMissing: useUrdu && entry.urduStatus === "unavailable" });
+        loadedSunni.push({ col, entry });
       } catch (e) {
         errors.push(`Could not load ${col.name}: ${e.message}`);
       }
     }
+    expanded = expandQuery(query); // re-expand now that vocabulary includes these corpora
   }
+
+  async function collectSunni(relaxed) {
+    const groups = [];
+    for (const { col, entry } of loadedSunni) {
+      const kw = scoreSunni(col, entry, expanded, useUrdu, relaxed);
+      const sem = await semanticFor(col.id, entry.hadiths.length);
+      const merged = mergeScores(kw, sem);
+      const hits = merged.map((m) => buildSunniHit(col, entry, m.idx, m.score, m.sim, useUrdu));
+      if (hits.length) groups.push({ col, hits, urduMissing: useUrdu && entry.urduStatus === "unavailable" });
+    }
+    return groups;
+  }
+  sunniGroups.push(...await collectSunni(false));
 
   if (token !== searchToken) return;
 
@@ -414,11 +433,13 @@ async function runSearch(query) {
   }
 
   let shiaHits = [];
+  let shiaDocsRef = null;
   if (wantShia) {
     if (proState.manifest?.shia) {
       try {
         const docs = await ensureShiaLocal();
         if (token !== searchToken) return;
+        shiaDocsRef = docs;
         expanded = expandQuery(query);
         const kw = scoreShiaLocal(docs, expanded);
         const sem = await semanticFor("shia", docs.length);
@@ -442,13 +463,32 @@ async function runSearch(query) {
     }
   }
   if (token !== searchToken) return;
+
+  // Nothing matched every part of the query — rather than report "0 found", widen
+  // to narrations matching any part, ranked by how much of the query they cover.
+  let relaxedUsed = false;
+  if (sunniGroups.length === 0 && shiaHits.length === 0 && expanded.groups.length > 1) {
+    const wide = await collectSunni(true);
+    let wideShia = [];
+    if (shiaDocsRef) {
+      const kw = scoreShiaLocal(shiaDocsRef, expanded, true);
+      const sem = await semanticFor("shia", shiaDocsRef.length);
+      wideShia = mergeScores(kw, sem).map((m) => buildShiaHit(shiaDocsRef, m.idx, m.score, m.sim));
+    }
+    if (wide.length || wideShia.length) {
+      sunniGroups.push(...wide);
+      shiaHits = wideShia;
+      relaxedUsed = true;
+    }
+  }
+  if (token !== searchToken) return;
   setStatus(null);
 
-  renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu });
+  renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu, relaxedUsed });
 }
 
 const PAGE = 5;
-function renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu, shiaLoading }) {
+function renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu, shiaLoading, relaxedUsed }) {
   const resultsEl = $("#results");
   const summaryEl = $("#results-summary");
   const terms = allVariantTerms(expanded);
@@ -459,6 +499,9 @@ function renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu
   let summaryHtml = shiaLoading
     ? `${totalSunni} Sunni narration${totalSunni === 1 ? "" : "s"} found for “${escapeHtml(query)}” — Shia collections still loading…`
     : `${total} narration${total === 1 ? "" : "s"} found for “${escapeHtml(query)}” — ${totalSunni} Sunni · ${shiaHits.length} Shia`;
+  if (relaxedUsed) {
+    summaryHtml += `<div class="smart-note">No narration contained every part of your search, so these match part of it — the closest ones first.</div>`;
+  }
   for (const c of expanded.corrections) {
     summaryHtml += `<div class="smart-note">Corrected “${escapeHtml(c.from)}” → “${escapeHtml(c.to)}”.</div>`;
   }

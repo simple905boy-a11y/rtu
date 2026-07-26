@@ -93,7 +93,7 @@ const hadithState = {
 // which lets the app run from anywhere — including a local file — with no hosting.
 let DATA_BASE = "data";
 const CDN_DATA_BASE = "https://cdn.jsdelivr.net/gh/simple905boy-a11y/rtu@data";
-const proState = { manifest: null, shiaDocs: null, semantic: false, viaCdn: false };
+const proState = { manifest: null, shiaDocs: null, shiaLoading: null, semantic: false, viaCdn: false };
 
 async function initPro() {
   for (const base of [DATA_BASE, CDN_DATA_BASE]) {
@@ -132,16 +132,32 @@ $("#semantic-toggle").addEventListener("click", () => {
 
 async function ensureShiaLocal() {
   if (proState.shiaDocs) return proState.shiaDocs;
+  if (proState.shiaLoading) return proState.shiaLoading; // a search already started it
   const shards = proState.manifest?.shia?.shards || ["shia.json"];
-  const docs = [];
-  for (let i = 0; i < shards.length; i++) {
-    setStatus(`Loading Shia corpus (part ${i + 1} of ${shards.length}, one-time — cached for future searches)…`);
-    const data = await cachedFetchJSON(`${DATA_BASE}/${shards[i]}`);
-    docs.push(...(data.docs || []));
+
+  // Fetched in parallel: sequentially this was six round-trips of dead time before
+  // any Shia result could appear. Sunni results are already on screen by now.
+  proState.shiaLoading = (async () => {
+    let done = 0;
+    const note = () => setStatus(
+      `Loading Shia corpus — ${done} of ${shards.length} parts ready. ` +
+      `This happens once (about 65 MB); afterwards it is instant and works offline.`);
+    note();
+    const parts = await Promise.all(shards.map(async (name) => {
+      const data = await cachedFetchJSON(`${DATA_BASE}/${name}`);
+      done++; note();
+      return data.docs || [];
+    }));
+    const docs = parts.flat();
+    proState.shiaDocs = docs;
+    feedVocabulary(docs.map((d) => d.text));
+    return docs;
+  })();
+  try {
+    return await proState.shiaLoading;
+  } finally {
+    proState.shiaLoading = null;
   }
-  proState.shiaDocs = docs;
-  feedVocabulary(docs.map((d) => d.text));
-  return docs;
 }
 
 /* ---------- collections picker ---------- */
@@ -388,6 +404,15 @@ async function runSearch(query) {
     }
   }
 
+  if (token !== searchToken) return;
+
+  // The Shia corpus is a large one-time download. Put the Sunni results on screen
+  // straight away rather than holding the whole page hostage to it.
+  const shiaDeferred = wantShia && proState.manifest?.shia && !proState.shiaDocs;
+  if (shiaDeferred) {
+    renderResults({ query, expanded, sunniGroups, shiaHits: [], errors, useUrdu, shiaLoading: true });
+  }
+
   let shiaHits = [];
   if (wantShia) {
     if (proState.manifest?.shia) {
@@ -423,7 +448,7 @@ async function runSearch(query) {
 }
 
 const PAGE = 5;
-function renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu }) {
+function renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu, shiaLoading }) {
   const resultsEl = $("#results");
   const summaryEl = $("#results-summary");
   const terms = allVariantTerms(expanded);
@@ -431,7 +456,9 @@ function renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu
   const total = totalSunni + shiaHits.length;
 
   summaryEl.hidden = false;
-  let summaryHtml = `${total} narration${total === 1 ? "" : "s"} found for “${escapeHtml(query)}” — ${totalSunni} Sunni · ${shiaHits.length} Shia`;
+  let summaryHtml = shiaLoading
+    ? `${totalSunni} Sunni narration${totalSunni === 1 ? "" : "s"} found for “${escapeHtml(query)}” — Shia collections still loading…`
+    : `${total} narration${total === 1 ? "" : "s"} found for “${escapeHtml(query)}” — ${totalSunni} Sunni · ${shiaHits.length} Shia`;
   for (const c of expanded.corrections) {
     summaryHtml += `<div class="smart-note">Corrected “${escapeHtml(c.from)}” → “${escapeHtml(c.to)}”.</div>`;
   }
@@ -462,6 +489,11 @@ function renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu
   if (hadithState.sect !== "sunni") {
     const sect = sectionEl("Shia collections", "shia");
     if (!shiaSelected()) sect.appendChild(emptyEl("Shia collections are unchecked in the Collections menu."));
+    else if (shiaLoading) {
+      const wait = emptyEl("Downloading the Shia corpus (32,531 hadith) for the first time — these results will appear here automatically in a moment, and every later search is instant.");
+      wait.insertAdjacentHTML("afterbegin", `<div class="spinner" style="margin:6px auto 12px"></div>`);
+      sect.appendChild(wait);
+    }
     else if (shiaHits.length === 0 && !errors.some((e) => e.includes("thaqalayn"))) sect.appendChild(emptyEl("No matches in the Shia corpus."));
     if (shiaHits.length) {
       appendGroup(sect, `Thaqalayn corpus — ${shiaHits.length} match${shiaHits.length === 1 ? "" : "es"}`, shiaHits, terms);

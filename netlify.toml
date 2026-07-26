@@ -1,0 +1,25 @@
+# Al-Miftah is a static site with no build step: the app is plain HTML/CSS/JS and
+# its search index is fetched from the jsDelivr CDN at runtime.
+[build]
+  publish = "."
+  command = ""
+
+# No SPA catch-all redirect on purpose: the app probes for data/manifest.json and
+# must receive a real 404 when the index is not deployed alongside it, otherwise it
+# cannot fall back to the CDN copy.
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    Referrer-Policy = "no-referrer"
+
+[[headers]]
+  for = "/css/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"
+
+[[headers]]
+  for = "/js/*"
+  [headers.values]
+    Cache-Control = "public, max-age=3600"

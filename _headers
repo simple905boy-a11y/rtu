@@ -1,0 +1,10 @@
+# Read by Cloudflare Pages and Netlify. Harmless on GitHub Pages, which ignores it.
+/*
+  X-Content-Type-Options: nosniff
+  Referrer-Policy: no-referrer
+
+/css/*
+  Cache-Control: public, max-age=3600
+
+/js/*
+  Cache-Control: public, max-age=3600

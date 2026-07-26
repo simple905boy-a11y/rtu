@@ -36,7 +36,21 @@ jobs:
         working-directory: pipeline
         run: npm install --no-fund --no-audit
 
+      # Embedding ~69k hadith takes ~20 min, so keep the result for the rest of
+      # the month. Re-running (e.g. after a deploy-only failure) then costs seconds.
+      - name: Cache period
+        id: period
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore built index
+        id: index-cache
+        uses: actions/cache@v4
+        with:
+          path: _site/data
+          key: almiftah-index-${{ steps.period.outputs.month }}-${{ hashFiles('pipeline/build.mjs') }}
+
       - name: Build index (Shia mirror + semantic embeddings)
+        if: steps.index-cache.outputs.cache-hit != 'true'
         working-directory: pipeline
         run: node build.mjs --out ../_site/data
 
@@ -45,10 +59,14 @@ jobs:
           cp index.html _site/
           cp -r css js _site/
 
-      - uses: actions/configure-pages@v5
+      # Keeps the built index downloadable even if the Pages publish step fails.
+      - uses: actions/upload-artifact@v4
         with:
-          # Create/enable the Pages site (source: GitHub Actions) if it isn't already.
-          enablement: true
+          name: almiftah-site
+          path: _site
+          retention-days: 7
+
+      - uses: actions/configure-pages@v5
 
       - uses: actions/upload-pages-artifact@v3
         with:

@@ -20,6 +20,7 @@ function initLang() {
       applyLang();
       fillTranslationSelect();
       pickDefaultTafsirForLang();
+      renderBooks($("#book-filter")?.value || "");
       if (hadithState.lastQuery) runSearch(hadithState.lastQuery);
       if (tafsirState.loaded) loadTafsir();
     })
@@ -792,8 +793,45 @@ function sanitizeTafsirHtml(html) {
   return tpl.innerHTML;
 }
 
+/* ================================================================
+   LIBRARY
+   ================================================================ */
+function renderBooks(filter = "") {
+  const list = $("#books-list");
+  if (!list) return;
+  const q = smartNormalize(filter.trim());
+  const shown = LIBRARY.filter((b) => {
+    if (!q) return true;
+    const hay = smartNormalize([b.title, b.urdu, b.author, b.about, b.aboutUr, ...(b.topics || [])].join(" "));
+    return q.split(/\s+/).every((t) => hay.includes(t));
+  });
+
+  list.innerHTML = shown.length ? "" : `<div class="no-results">کوئی کتاب نہیں ملی — no book matched.</div>`;
+  for (const b of shown) {
+    const card = document.createElement("article");
+    card.className = "book-card";
+    card.innerHTML = `
+      <div class="book-title-ur">${escapeHtml(b.urdu)}</div>
+      <div class="book-title-en">${escapeHtml(b.title)}</div>
+      ${b.author ? `<div class="book-author">${escapeHtml(b.author)}</div>` : ""}
+      <p class="book-about">${escapeHtml(appLang === "ur" && b.aboutUr ? b.aboutUr : b.about)}</p>
+      ${b.note ? `<div class="book-note">⚠ ${escapeHtml(b.note)}</div>` : ""}
+      <div class="book-actions">
+        <a class="book-open" href="${escapeHtml(b.url)}" target="_blank" rel="noopener">کھولیں · Open ↗</a>
+        <span class="book-host">${escapeHtml(b.host)}</span>
+      </div>`;
+    list.appendChild(card);
+  }
+}
+
+function initBooks() {
+  renderBooks();
+  $("#book-filter")?.addEventListener("input", (e) => renderBooks(e.target.value));
+}
+
 /* ---------------- boot ---------------- */
 initLang();
+initBooks();
 renderCollectionsPicker();
 initTafsirControls();
 initPro();

@@ -81,6 +81,20 @@ for (const [label, url] of [
 }
 
 console.log("\n" + "=".repeat(70));
+console.log("LIBRARY LINKS — are the book links still reachable?");
+console.log("=".repeat(70));
+try {
+  const src = await import("node:fs/promises").then((fs) => fs.readFile("js/books.js", "utf8"));
+  const urls = [...src.matchAll(/url:\s*"([^"]+)"/g)].map((m) => m[1]);
+  for (const u of [...new Set(urls)]) {
+    try {
+      const r = await fetch(u, { redirect: "follow" });
+      console.log(`  ${r.ok ? "OK  " : "FAIL"} ${r.status}  ${u}`);
+    } catch (e) { console.log(`  FAIL --   ${u}  (${e.message})`); }
+  }
+} catch (e) { console.log("! could not read js/books.js:", e.message); }
+
+console.log("\n" + "=".repeat(70));
 console.log("SHIA BOOKS (thaqalayn-api) — already fully mirrored");
 console.log("=".repeat(70));
 try {

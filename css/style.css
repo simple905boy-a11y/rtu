@@ -323,6 +323,40 @@ mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
+/* ---------- library ---------- */
+.books-grid {
+  display: grid; gap: 16px; margin-top: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+}
+.book-card {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius);
+  padding: 20px; box-shadow: var(--shadow);
+  display: flex; flex-direction: column; gap: 6px;
+  transition: box-shadow 0.2s, transform 0.2s;
+  animation: fadeIn 0.3s ease;
+}
+.book-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-2px); }
+.book-title-ur {
+  font-family: "Noto Nastaliq Urdu", "Amiri", serif;
+  direction: rtl; text-align: right;
+  font-size: 1.15rem; line-height: 2.1; color: var(--green-600); font-weight: 600;
+}
+.book-title-en { font-weight: 700; font-size: 0.95rem; }
+.book-author { font-size: 0.8rem; color: var(--ink-soft); font-style: italic; }
+.book-about { font-size: 0.85rem; color: var(--ink-soft); flex: 1; }
+.book-note {
+  font-size: 0.75rem; background: var(--gold-soft); color: #8a6d1a;
+  border-radius: 8px; padding: 6px 10px;
+}
+[data-theme="dark"] .book-note { color: var(--gold); }
+.book-actions {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-top: 8px; padding-top: 10px; border-top: 1px dashed var(--line);
+}
+.book-open { font-weight: 700; font-size: 0.85rem; color: var(--green-600); text-decoration: none; }
+.book-open:hover { text-decoration: underline; }
+.book-host { font-size: 0.72rem; color: var(--ink-soft); }
+
 /* ---------- footer ---------- */
 .site-footer {
   border-top: 1px solid var(--line);

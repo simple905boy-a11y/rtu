@@ -24,6 +24,7 @@
       <nav class="tabs" role="tablist">
         <button class="tab active" data-tab="hadith" role="tab" aria-selected="true">Hadith Search</button>
         <button class="tab" data-tab="tafsir" role="tab" aria-selected="false">Qur'an &amp; Tafsir</button>
+        <button class="tab" data-tab="books" role="tab" aria-selected="false">کتابیں</button>
       </nav>
       <div class="lang-toggle" role="group" aria-label="Language">
         <button data-lang="en">EN</button>
@@ -94,6 +95,19 @@
       </div>
       <div id="tafsir-output" class="tafsir-output"></div>
     </section>
+
+    <!-- ============ LIBRARY ============ -->
+    <section id="panel-books" class="panel" role="tabpanel">
+      <div class="search-hero">
+        <h2>اسلامی کتابیں — Islamic Library</h2>
+        <p class="muted">Complete Urdu books. These open in their publisher's own reader —
+          Al-Miftah links to them rather than hosting copies.</p>
+        <form id="book-search" class="search-bar" autocomplete="off" onsubmit="return false">
+          <input id="book-filter" type="search" placeholder="کتاب تلاش کریں… / filter books" aria-label="Filter books" />
+        </form>
+      </div>
+      <div id="books-list" class="books-grid"></div>
+    </section>
   </main>
 
   <footer class="site-footer">
@@ -106,6 +120,7 @@
 
   <script src="js/quran-meta.js"></script>
   <script src="js/sources.js"></script>
+  <script src="js/books.js"></script>
   <script src="js/search-smart.js"></script>
   <script src="js/search-semantic.js"></script>
   <script src="js/app.js"></script>

@@ -89,6 +89,15 @@ button { font-family: inherit; cursor: pointer; }
   width: 38px; height: 38px; border-radius: 10px; font-size: 18px;
 }
 
+.lang-toggle { display: flex; gap: 4px; background: rgba(0,0,0,0.18); padding: 4px; border-radius: 10px; }
+.lang-toggle button {
+  border: 0; background: transparent; color: #fff;
+  padding: 6px 12px; border-radius: 7px; font-weight: 700; font-size: 0.82rem;
+  transition: background 0.2s;
+}
+.lang-toggle button:hover { background: rgba(255,255,255,0.12); }
+.lang-toggle button.active { background: var(--gold); color: var(--green-900); }
+
 /* ---------- layout ---------- */
 main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
 .panel { display: none; animation: fadeIn 0.25s ease; }
@@ -184,6 +193,7 @@ main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
   background: var(--green-100); border-radius: 10px;
   font-size: 0.9rem; font-weight: 600;
 }
+.smart-note { font-weight: 400; font-size: 0.8rem; color: var(--ink-soft); margin-top: 4px; }
 .results { display: flex; flex-direction: column; gap: 26px; }
 
 .sect-group h3 {
@@ -225,7 +235,15 @@ main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
 [data-theme="dark"] .grade-daif  { background: #3d1f1f; color: #e88c8c; }
 
 .hadith-text { font-size: 0.96rem; }
-.hadith-text mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding: 0 2px; }
+mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding: 0 2px; }
+.urdu-text, .hadith-urdu, .verse-urdu {
+  font-family: "Noto Nastaliq Urdu", "Amiri", serif;
+  direction: rtl; text-align: right;
+  font-size: 1.05rem; line-height: 2.4;
+}
+.hadith-urdu { margin-bottom: 10px; }
+.verse-urdu { margin-bottom: 8px; }
+.secondary-text { font-size: 0.85rem; margin-top: 8px; padding-top: 8px; border-top: 1px dashed var(--line); }
 .hadith-arabic {
   font-family: "Amiri", "Scheherazade New", serif;
   font-size: 1.35rem; line-height: 2.1; direction: rtl; text-align: right;

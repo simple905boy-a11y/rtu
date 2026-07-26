@@ -18,6 +18,8 @@ or hosted free on GitHub Pages.
 | Full references | Collection name, hadith number, book/chapter, plus a "View at source" link (sunnah.com / thaqalayn.net) and one-click **Copy citation** |
 | Gradings shown transparently | Sunni gradings (Sahih/Hasan/Da'if by recorded scholars) and Shia gradings (al-Majlisi) rendered as colour-coded badges |
 | School filter | All / Sunni / Shia chips, and a per-collection picker |
+| **Urdu support** | Global EN/اردو toggle: hadith shown in Urdu (Nastaliq typography) with English beneath, Urdu Qur'an translation (Fateh Muhammad Jalandhry), and Urdu tafsirs — تفسیر ابنِ کثیر, بیان القرآن (Dr. Israr Ahmad), فی ظلال القرآن |
+| **Smart search** | Islamic-term synonyms (nikah = marriage = شادی, zakat = charity = زکوٰۃ, ~45 concept groups), English stemming (orphans→orphan), typo correction against the corpus vocabulary (marrige→marriage), stop-word removal ("hadees about marriage"→"marriage"), cross-script matching (an Urdu query matches English texts and vice versa), relevance ranking with exact > synonym > corrected weighting |
 | Qur'an & Tafsir reader | Any of the 6,236 verses with Arabic (Uthmani script), Saheeh International translation, and tafsir from **Ibn Kathir, Ma'ariful Qur'an (Mufti Shafi Usmani), Tazkirul Qur'an (Wahiduddin Khan)**, plus Arabic Ibn Kathir and al-Muyassar |
 | Professional UX | Islamic green/gold design, Arabic typography (Amiri), dark mode, smooth animations, mobile responsive, verse prev/next navigation |
 | Performance | Collections download once and are cached in the browser (Cache API); subsequent searches are instant and work like a local database |
@@ -31,9 +33,10 @@ or hosted free on GitHub Pages.
 | [Tafsir API (spa5k)](https://github.com/spa5k/tafsir_api) via jsDelivr CDN | Tafsir texts | Static JSON on CDN |
 
 ### Honest limitations of Phase 1
-- Search is keyword-based (all words must appear). It does not yet understand synonyms
-  ("nikah" vs "marriage") or Arabic-root search.
-- Shia coverage depends on the community Thaqalayn API being online.
+- Smart search uses a curated synonym dictionary + typo correction; it is not yet true
+  semantic search (that needs embeddings — Phase 2/3) and has no Arabic-root morphology.
+- Shia coverage depends on the community Thaqalayn API being online, and has no Urdu
+  translation in the free source.
 - Shia *tafsir* (e.g. al-Mizan by Allamah Tabataba'i) is not yet included — no free
   machine-readable source exists; it needs licensing/ingestion work (Phase 2).
 - First search per collection downloads a few MB (then cached forever).

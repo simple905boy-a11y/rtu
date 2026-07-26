@@ -11,6 +11,12 @@ A professional, fast Islamic reference web app:
 - 🕋 **Qur'an & Tafsir reader** — any verse with Arabic text, English translation, and
   commentary from renowned scholars: **Ibn Kathir, Ma'ariful Qur'an (Mufti Shafi Usmani),
   Tazkirul Qur'an (Wahiduddin Khan)** and Arabic tafsirs.
+- 🇵🇰 **Urdu mode (اردو)** — one toggle switches hadith text to Urdu (Nastaliq script),
+  the Qur'an translation to Fateh Muhammad Jalandhry, and offers Urdu tafsirs
+  (تفسیر ابنِ کثیر، بیان القرآن، فی ظلال القرآن).
+- 🧠 **Smart search** — understands synonyms (*nikah = marriage = شادی*), fixes typos
+  (*marrige → marriage*), stems plurals, ignores filler words, and matches across
+  scripts: search in English or Urdu, find results in both.
 - ✨ Dark mode, Arabic typography, mobile-friendly, smooth animations. No login, no tracking.
 
 ## Run it
@@ -34,9 +40,10 @@ Or deploy free on **GitHub Pages**: Settings → Pages → Deploy from branch �
 ```
 index.html        app shell (two tabs: Hadith Search, Qur'an & Tafsir)
 css/style.css     design system (light/dark, Islamic green & gold)
-js/sources.js     data-source configuration (collections, tafsir editions)
+js/sources.js     data-source configuration (collections, tafsir editions, translations)
 js/quran-meta.js  surah names + verse counts
-js/app.js         search engine, caching, rendering
+js/search-smart.js synonym/typo/stemming query engine
+js/app.js         app logic, caching, rendering
 PROPOSAL.md       full roadmap (backend search, mobile apps, more sources)
 ```
 

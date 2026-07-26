@@ -4,6 +4,27 @@
 const $ = (sel) => document.querySelector(sel);
 const $$ = (sel) => [...document.querySelectorAll(sel)];
 
+/* ---------------- language ---------------- */
+let appLang = localStorage.getItem("almiftah-lang") || "en";
+
+function applyLang() {
+  $$(".lang-toggle button").forEach((b) => b.classList.toggle("active", b.dataset.lang === appLang));
+}
+function initLang() {
+  applyLang();
+  $$(".lang-toggle button").forEach((b) =>
+    b.addEventListener("click", () => {
+      if (appLang === b.dataset.lang) return;
+      appLang = b.dataset.lang;
+      localStorage.setItem("almiftah-lang", appLang);
+      applyLang();
+      pickDefaultTafsirForLang();
+      if (hadithState.lastQuery) runSearch(hadithState.lastQuery);
+      if (tafsirState.loaded) loadTafsir();
+    })
+  );
+}
+
 /* ---------------- theme + tabs ---------------- */
 (function initChrome() {
   const saved = localStorage.getItem("almiftah-theme");
@@ -62,7 +83,7 @@ async function cachedFetchJSON(url, onProgress) {
    ================================================================ */
 const hadithState = {
   sect: "all",
-  editions: new Map(),   // editionId -> { meta, hadiths } (Sunni, loaded lazily)
+  editions: new Map(),   // colId -> { hadiths, urdu: Map|null, urduStatus: "none"|"loaded"|"unavailable" }
   lastQuery: ""
 };
 
@@ -122,58 +143,66 @@ function setStatus(msg, progress = null) {
   el.innerHTML = `<div>${msg}</div>` + (progress !== null ? `<div class="bar"><div style="width:${Math.round(progress * 100)}%"></div></div>` : "");
 }
 
-/* ---------- text search helpers ---------- */
-function normalize(s) { return (s || "").toLowerCase().replace(/[‘’']/g, "'"); }
-
-function scoreText(text, terms, phrase) {
-  const t = normalize(text);
-  let score = 0;
-  for (const term of terms) {
-    const wordRe = new RegExp(`\\b${escapeRe(term)}`, "g");
-    const hits = (t.match(wordRe) || []).length;
-    if (!hits && !t.includes(term)) return 0; // AND semantics — every term must appear
-    score += hits * 2 + (t.includes(term) ? 1 : 0);
-  }
-  if (terms.length > 1 && t.includes(phrase)) score += 10;
-  return score;
-}
 function escapeRe(s) { return s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"); }
-
+function escapeHtml(s) {
+  return (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
+}
 function highlight(text, terms) {
   let out = escapeHtml(text);
   for (const term of terms) {
+    if (term.length < 3) continue;
     out = out.replace(new RegExp(`(${escapeRe(term)})`, "gi"), "<mark>$1</mark>");
   }
   return out;
 }
-function escapeHtml(s) {
-  return (s || "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
-}
 
 /* ---------- Sunni: load + search ---------- */
 async function ensureEdition(col) {
-  if (hadithState.editions.has(col.id)) return hadithState.editions.get(col.id);
-  const url = `${HADITH_CDN}/${col.edition}.min.json`;
-  setStatus(`Downloading <strong>${col.name}</strong> (one-time, ${col.size} — cached for future searches)…`, 0);
-  const data = await cachedFetchJSON(url, (p) => setStatus(`Downloading <strong>${col.name}</strong> (one-time, ${col.size})…`, p));
-  const parsed = { meta: data.metadata || {}, hadiths: data.hadiths || [] };
-  hadithState.editions.set(col.id, parsed);
-  return parsed;
+  let entry = hadithState.editions.get(col.id);
+  if (!entry) {
+    const url = `${HADITH_CDN}/${col.edition}.min.json`;
+    setStatus(`Downloading <strong>${col.name}</strong> (one-time, ${col.size} — cached for future searches)…`, 0);
+    const data = await cachedFetchJSON(url, (p) => setStatus(`Downloading <strong>${col.name}</strong> (one-time, ${col.size})…`, p));
+    entry = { hadiths: data.hadiths || [], urdu: null, urduStatus: "none" };
+    hadithState.editions.set(col.id, entry);
+    feedVocabulary(entry.hadiths.map((h) => h.text));
+  }
+  return entry;
 }
 
-function searchSunni(col, edition, terms, phrase) {
+async function ensureUrdu(col, entry) {
+  if (entry.urduStatus !== "none") return;
+  try {
+    const url = `${HADITH_CDN}/${col.urduEdition}.min.json`;
+    setStatus(`Downloading <strong>${col.name}</strong> اردو ترجمہ (one-time, cached)…`, 0);
+    const data = await cachedFetchJSON(url, (p) => setStatus(`Downloading <strong>${col.name}</strong> اردو ترجمہ…`, p));
+    entry.urdu = new Map((data.hadiths || []).map((h) => [String(h.hadithnumber), h.text]));
+    entry.urduStatus = "loaded";
+  } catch {
+    entry.urduStatus = "unavailable"; // e.g. Urdu edition not published for this collection
+  }
+}
+
+function searchSunni(col, entry, expanded, useUrdu) {
   const out = [];
-  for (const h of edition.hadiths) {
-    const s = scoreText(h.text, terms, phrase);
+  for (const h of entry.hadiths) {
+    if (h._n === undefined) h._n = smartNormalize(h.text);
+    let urduText = null;
+    if (useUrdu && entry.urdu) {
+      urduText = entry.urdu.get(String(h.hadithnumber)) || null;
+      if (urduText && h._nu === undefined) h._nu = smartNormalize(urduText);
+    }
+    const s = smartMatch([h._n, urduText ? h._nu : null], expanded);
     if (s > 0) {
       out.push({
         score: s,
-        collection: col.name,
+        collection: appLang === "ur" ? col.urduName : col.name,
         colId: col.id,
         number: h.hadithnumber,
         book: h.reference ? h.reference.book : null,
         inBookRef: h.reference ? h.reference.hadith : null,
         text: h.text,
+        urdu: urduText,
         grades: (h.grades || []).map((g) => ({ by: g.name, grade: g.grade })),
         link: `https://sunnah.com/${col.sunnahSlug}:${h.hadithnumber}`
       });
@@ -212,8 +241,6 @@ let searchToken = 0;
 async function runSearch(query) {
   hadithState.lastQuery = query;
   const token = ++searchToken;
-  const terms = normalize(query).split(/\s+/).filter(Boolean);
-  const phrase = normalize(query);
   const resultsEl = $("#results");
   const summaryEl = $("#results-summary");
   resultsEl.innerHTML = `<div class="spinner"></div>`;
@@ -221,17 +248,21 @@ async function runSearch(query) {
 
   const wantSunni = hadithState.sect !== "shia";
   const wantShia = hadithState.sect !== "sunni" && shiaSelected();
+  const useUrdu = appLang === "ur" || isArabicScript(query);
 
   const sunniGroups = [];
   const errors = [];
+  let expanded = expandQuery(query); // pre-vocabulary pass (synonyms work immediately)
 
   if (wantSunni) {
     for (const col of selectedSunni()) {
       try {
-        const edition = await ensureEdition(col);
+        const entry = await ensureEdition(col);
+        if (useUrdu) await ensureUrdu(col, entry);
         if (token !== searchToken) return; // superseded by a newer search
-        const hits = searchSunni(col, edition, terms, phrase);
-        if (hits.length) sunniGroups.push({ col, hits });
+        expanded = expandQuery(query);     // re-expand now that vocabulary includes this corpus
+        const hits = searchSunni(col, entry, expanded, useUrdu);
+        if (hits.length) sunniGroups.push({ col, hits, urduMissing: useUrdu && entry.urduStatus === "unavailable" });
       } catch (e) {
         errors.push(`Could not load ${col.name}: ${e.message}`);
       }
@@ -242,11 +273,12 @@ async function runSearch(query) {
   if (wantShia) {
     setStatus("Searching Shia collections via Thaqalayn…");
     try {
-      shiaHits = await searchShia(query);
-      // Keep AND semantics consistent with the Sunni side.
+      // Ask the API with the primary term, then re-rank with the smart matcher
+      // (matches English text and, for Urdu/Arabic-script queries, the Arabic original).
+      shiaHits = await searchShia(expanded.tokens[0] || query);
       shiaHits = shiaHits
-        .map((h) => ({ ...h, score: scoreText(h.text, terms, phrase) }))
-        .filter((h) => h.score > 0 || terms.length === 0)
+        .map((h) => ({ ...h, score: smartMatch([smartNormalize(h.text), smartNormalize(h.arabic)], expanded) }))
+        .filter((h) => h.score > 0)
         .sort((a, b) => b.score - a.score);
     } catch (e) {
       errors.push(`Shia source (thaqalayn-api.net) is unreachable right now — please retry shortly. (${e.message})`);
@@ -255,18 +287,26 @@ async function runSearch(query) {
   if (token !== searchToken) return;
   setStatus(null);
 
-  renderResults({ query, terms, sunniGroups, shiaHits, errors });
+  renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu });
 }
 
 const PAGE = 5;
-function renderResults({ query, terms, sunniGroups, shiaHits, errors }) {
+function renderResults({ query, expanded, sunniGroups, shiaHits, errors, useUrdu }) {
   const resultsEl = $("#results");
   const summaryEl = $("#results-summary");
+  const terms = allVariantTerms(expanded);
   const totalSunni = sunniGroups.reduce((n, g) => n + g.hits.length, 0);
   const total = totalSunni + shiaHits.length;
 
   summaryEl.hidden = false;
-  summaryEl.textContent = `${total} narration${total === 1 ? "" : "s"} found for “${query}” — ${totalSunni} Sunni · ${shiaHits.length} Shia`;
+  let summaryHtml = `${total} narration${total === 1 ? "" : "s"} found for “${escapeHtml(query)}” — ${totalSunni} Sunni · ${shiaHits.length} Shia`;
+  for (const c of expanded.corrections) {
+    summaryHtml += `<div class="smart-note">Corrected “${escapeHtml(c.from)}” → “${escapeHtml(c.to)}”.</div>`;
+  }
+  if (expanded.synonymsUsed.length) {
+    summaryHtml += `<div class="smart-note">Smart search also matched: ${expanded.synonymsUsed.slice(0, 10).map(escapeHtml).join(", ")}</div>`;
+  }
+  summaryEl.innerHTML = summaryHtml;
 
   resultsEl.innerHTML = "";
 
@@ -280,7 +320,10 @@ function renderResults({ query, terms, sunniGroups, shiaHits, errors }) {
   if (hadithState.sect !== "shia") {
     const sect = sectionEl("Sunni collections", "sunni");
     if (sunniGroups.length === 0) sect.appendChild(emptyEl("No matches in the selected Sunni collections."));
-    for (const g of sunniGroups) appendGroup(sect, `${g.col.name} — ${g.hits.length} match${g.hits.length === 1 ? "" : "es"}`, g.hits, terms);
+    for (const g of sunniGroups) {
+      appendGroup(sect, `${g.col.name} — ${g.hits.length} match${g.hits.length === 1 ? "" : "es"}`, g.hits, terms);
+      if (g.urduMissing) sect.appendChild(emptyEl(`اردو ترجمہ ${g.col.name} کے لیے دستیاب نہیں — showing English.`));
+    }
     resultsEl.appendChild(sect);
   }
 
@@ -288,7 +331,10 @@ function renderResults({ query, terms, sunniGroups, shiaHits, errors }) {
     const sect = sectionEl("Shia collections", "shia");
     if (!shiaSelected()) sect.appendChild(emptyEl("Shia collections are unchecked in the Collections menu."));
     else if (shiaHits.length === 0 && !errors.some((e) => e.includes("thaqalayn"))) sect.appendChild(emptyEl("No matches in the Shia corpus."));
-    if (shiaHits.length) appendGroup(sect, `Thaqalayn corpus — ${shiaHits.length} match${shiaHits.length === 1 ? "" : "es"}`, shiaHits, terms);
+    if (shiaHits.length) {
+      appendGroup(sect, `Thaqalayn corpus — ${shiaHits.length} match${shiaHits.length === 1 ? "" : "es"}`, shiaHits, terms);
+      if (useUrdu) sect.appendChild(emptyEl("اردو ترجمہ شیعہ مجموعوں کے لیے ابھی دستیاب نہیں — showing English & Arabic."));
+    }
     resultsEl.appendChild(sect);
   }
 }
@@ -351,9 +397,14 @@ function hadithCard(h, terms) {
 
   const citation = `${h.collection}${h.number !== "" ? " " + h.number : ""}${h.book != null ? ` (Book ${h.book}${h.inBookRef != null ? ", Hadith " + h.inBookRef : ""})` : ""}`;
 
+  const urduBlock = h.urdu && appLang === "ur"
+    ? `<div class="hadith-urdu">${highlight(truncate(h.urdu, 900), terms)}</div>`
+    : "";
+  const englishBlock = `<div class="hadith-text ${appLang === "ur" && h.urdu ? "muted secondary-text" : ""}">${highlight(truncate(h.text, 900), terms)}</div>`;
+
   card.innerHTML = `
     <div class="hadith-ref">${refParts.join("")}</div>
-    <div class="hadith-text">${highlight(truncate(h.text, 900), terms)}</div>
+    ${urduBlock}${englishBlock}
     ${h.arabic ? `<div class="hadith-arabic">${escapeHtml(truncate(h.arabic, 700))}</div>` : ""}
     <div class="hadith-actions">
       <a href="${escapeHtml(h.link)}" target="_blank" rel="noopener">View at source ↗</a>
@@ -361,7 +412,8 @@ function hadithCard(h, terms) {
     </div>`;
 
   card.querySelector(".copy-cite").addEventListener("click", (e) => {
-    navigator.clipboard.writeText(`"${h.text}" — ${citation}`).then(() => {
+    const body = appLang === "ur" && h.urdu ? h.urdu : h.text;
+    navigator.clipboard.writeText(`"${body}" — ${citation}`).then(() => {
       e.target.textContent = "Copied ✓";
       setTimeout(() => (e.target.textContent = "Copy citation"), 1500);
     });
@@ -373,18 +425,36 @@ function truncate(s, n) { return s && s.length > n ? s.slice(0, n).replace(/\s+\
 /* ================================================================
    QUR'AN & TAFSIR
    ================================================================ */
+const tafsirState = { loaded: false };
+
 function initTafsirControls() {
   const surahSel = $("#surah-select");
   surahSel.innerHTML = SURAHS.map((s, i) => `<option value="${i + 1}">${i + 1}. ${s[0]} — ${s[1]}</option>`).join("");
   surahSel.addEventListener("change", fillAyahSelect);
 
   const tafsirSel = $("#tafsir-select");
-  tafsirSel.innerHTML = TAFSIR_EDITIONS.map((t) => `<option value="${t.slug}" ${t.default ? "selected" : ""}>${t.name}</option>`).join("");
+  let html = "";
+  for (const lang of ["en", "ur", "ar"]) {
+    const eds = TAFSIR_EDITIONS.filter((t) => t.lang === lang);
+    if (!eds.length) continue;
+    html += `<optgroup label="${TAFSIR_GROUP_LABELS[lang]}">` +
+      eds.map((t) => `<option value="${t.slug}">${t.name}</option>`).join("") + `</optgroup>`;
+  }
+  tafsirSel.innerHTML = html;
+  pickDefaultTafsirForLang();
 
   fillAyahSelect();
   $("#load-tafsir").addEventListener("click", loadTafsir);
   $("#prev-ayah").addEventListener("click", () => stepAyah(-1));
   $("#next-ayah").addEventListener("click", () => stepAyah(1));
+}
+function pickDefaultTafsirForLang() {
+  const sel = $("#tafsir-select");
+  if (!sel || !sel.options.length) return;
+  const current = TAFSIR_EDITIONS.find((t) => t.slug === sel.value);
+  if (current && current.lang === appLang) return; // user's pick already fits the language
+  const def = TAFSIR_EDITIONS.find((t) => (appLang === "ur" ? t.urduDefault : t.default)) || TAFSIR_EDITIONS[0];
+  sel.value = def.slug;
 }
 function fillAyahSelect() {
   const surah = +$("#surah-select").value;
@@ -409,6 +479,7 @@ function stepAyah(delta) {
 }
 
 async function loadTafsir() {
+  tafsirState.loaded = true;
   const surah = +$("#surah-select").value;
   const ayah = +$("#ayah-select").value;
   const slug = $("#tafsir-select").value;
@@ -417,7 +488,8 @@ async function loadTafsir() {
   const out = $("#tafsir-output");
   out.innerHTML = `<div class="spinner"></div>`;
 
-  const verseP = fetch(`${QURAN_API}/ayah/${surah}:${ayah}/editions/quran-uthmani,${TRANSLATION_EDITION}`).then((r) => {
+  const editions = `quran-uthmani,${TRANSLATIONS.en.edition},${TRANSLATIONS.ur.edition}`;
+  const verseP = fetch(`${QURAN_API}/ayah/${surah}:${ayah}/editions/${editions}`).then((r) => {
     if (!r.ok) throw new Error(`AlQuran.cloud HTTP ${r.status}`);
     return r.json();
   });
@@ -429,11 +501,15 @@ async function loadTafsir() {
   const verseCard = document.createElement("div");
   verseCard.className = "verse-card";
   if (verseRes.status === "fulfilled") {
-    const [arabic, english] = verseRes.value.data;
+    const [arabic, english, urdu] = verseRes.value.data;
+    const translations = appLang === "ur"
+      ? `<div class="verse-urdu">${escapeHtml(urdu.text)} <span class="muted">— ${TRANSLATIONS.ur.label}</span></div>
+         <div class="verse-translation secondary-text">“${escapeHtml(english.text)}” <span class="muted">— ${TRANSLATIONS.en.label}</span></div>`
+      : `<div class="verse-translation">“${escapeHtml(english.text)}” <span class="muted">— ${TRANSLATIONS.en.label}</span></div>`;
     verseCard.innerHTML = `
       <div class="verse-ref">Surah ${surahMeta[0]} (${surah}) · Verse ${ayah}</div>
       <div class="verse-arabic">${escapeHtml(arabic.text)}</div>
-      <div class="verse-translation">“${escapeHtml(english.text)}” <span class="muted">— Saheeh International</span></div>`;
+      ${translations}`;
   } else {
     verseCard.innerHTML = `<div class="source-error">⚠ Could not load the verse text (${escapeHtml(verseRes.reason.message)}). Please retry.</div>`;
   }
@@ -445,7 +521,7 @@ async function loadTafsir() {
     tafsirCard.innerHTML = `
       <h4>${escapeHtml(edition.name)}</h4>
       <div class="scholar">${escapeHtml(edition.scholar)}</div>
-      <div class="tafsir-body" ${edition.rtl ? 'dir="rtl" style="font-family:Amiri,serif;font-size:1.15rem;line-height:2"' : ""}>${sanitizeTafsirHtml(tafsirRes.value)}</div>`;
+      <div class="tafsir-body ${edition.lang === "ur" ? "urdu-text" : ""}" ${edition.rtl ? 'dir="rtl"' : ""} ${edition.lang === "ar" ? 'style="font-family:Amiri,serif;font-size:1.15rem;line-height:2"' : ""}>${sanitizeTafsirHtml(tafsirRes.value)}</div>`;
   } else {
     tafsirCard.innerHTML = `
       <h4>${escapeHtml(edition.name)}</h4>
@@ -482,5 +558,6 @@ function sanitizeTafsirHtml(html) {
 }
 
 /* ---------------- boot ---------------- */
+initLang();
 renderCollectionsPicker();
 initTafsirControls();

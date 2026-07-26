@@ -7,7 +7,7 @@
   <meta name="description" content="Search authentic hadith across Sunni and Shia collections with full references, and read Qur'an tafsir from renowned scholars." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:ital,wght@0,400;0,700;1,400&family=Scheherazade+New:wght@400;700&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:ital,wght@0,400;0,700;1,400&family=Scheherazade+New:wght@400;700&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/style.css" />
   <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕌</text></svg>" />
 </head>
@@ -25,6 +25,10 @@
         <button class="tab active" data-tab="hadith" role="tab" aria-selected="true">Hadith Search</button>
         <button class="tab" data-tab="tafsir" role="tab" aria-selected="false">Qur'an &amp; Tafsir</button>
       </nav>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button data-lang="en">EN</button>
+        <button data-lang="ur">اردو</button>
+      </div>
       <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button>
     </div>
   </header>
@@ -34,11 +38,11 @@
     <section id="panel-hadith" class="panel active" role="tabpanel">
       <div class="search-hero">
         <h2>Search hadith across Sunni &amp; Shia collections</h2>
-        <p class="muted">Type a topic — e.g. <button class="example-chip" data-q="marriage">marriage</button>
+        <p class="muted">Type a topic in English or اردو — e.g. <button class="example-chip" data-q="marriage">marriage</button>
           <button class="example-chip" data-q="charity">charity</button>
-          <button class="example-chip" data-q="prayer">prayer</button>
-          <button class="example-chip" data-q="knowledge">knowledge</button>
-          — and see narrations from every selected collection, each with its exact reference.</p>
+          <button class="example-chip" data-q="نماز">نماز</button>
+          <button class="example-chip" data-q="نکاح">نکاح</button>
+          — smart search understands synonyms (nikah = marriage = شادی) and fixes typos.</p>
         <form id="search-form" class="search-bar" autocomplete="off">
           <input id="search-input" type="search" placeholder="Search hadith… (English keywords, e.g. “marriage”)" aria-label="Search hadith" />
           <button type="submit" class="btn-primary">Search</button>
@@ -98,6 +102,7 @@
 
   <script src="js/quran-meta.js"></script>
   <script src="js/sources.js"></script>
+  <script src="js/search-smart.js"></script>
   <script src="js/app.js"></script>
 </body>
 </html>

@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Al-Miftah — Hadith Search &amp; Qur'an Tafsir</title>
+  <meta name="description" content="Search authentic hadith across Sunni and Shia collections with full references, and read Qur'an tafsir from renowned scholars." />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=Amiri:ital,wght@0,400;0,700;1,400&family=Scheherazade+New:wght@400;700&family=Noto+Nastaliq+Urdu:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/style.css" />
+  <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>🕌</text></svg>" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="header-inner">
+      <div class="brand">
+        <div class="brand-mark">☪</div>
+        <div class="brand-text">
+          <h1>Al-Miftah</h1>
+          <p>Hadith Search &amp; Qur'an Tafsir — across schools, with full references</p>
+        </div>
+      </div>
+      <nav class="tabs" role="tablist">
+        <button class="tab active" data-tab="hadith" role="tab" aria-selected="true">Hadith Search</button>
+        <button class="tab" data-tab="tafsir" role="tab" aria-selected="false">Qur'an &amp; Tafsir</button>
+      </nav>
+      <div class="lang-toggle" role="group" aria-label="Language">
+        <button data-lang="en">EN</button>
+        <button data-lang="ur">اردو</button>
+      </div>
+      <button id="theme-toggle" class="theme-toggle" title="Toggle dark mode" aria-label="Toggle dark mode">◐</button>
+    </div>
+  </header>
+
+  <main>
+    <!-- ============ HADITH SEARCH ============ -->
+    <section id="panel-hadith" class="panel active" role="tabpanel">
+      <div class="search-hero">
+        <h2>Search hadith across Sunni &amp; Shia collections</h2>
+        <p class="muted">Type a topic in English or اردو — e.g. <button class="example-chip" data-q="marriage">marriage</button>
+          <button class="example-chip" data-q="charity">charity</button>
+          <button class="example-chip" data-q="نماز">نماز</button>
+          <button class="example-chip" data-q="نکاح">نکاح</button>
+          — smart search understands synonyms (nikah = marriage = شادی) and fixes typos.</p>
+        <form id="search-form" class="search-bar" autocomplete="off">
+          <input id="search-input" type="search" placeholder="Search hadith… (English keywords, e.g. “marriage”)" aria-label="Search hadith" />
+          <button type="submit" class="btn-primary">Search</button>
+        </form>
+
+        <div class="filters">
+          <div class="sect-filter" role="group" aria-label="Filter by school">
+            <button class="chip active" data-sect="all">All schools</button>
+            <button class="chip" data-sect="sunni">Sunni</button>
+            <button class="chip" data-sect="shia">Shia</button>
+          </div>
+          <details class="collections-picker">
+            <summary>Collections <span id="collections-count"></span></summary>
+            <div id="collections-list" class="collections-list"></div>
+          </details>
+        </div>
+      </div>
+
+      <div id="load-status" class="load-status" hidden></div>
+      <div id="results-summary" class="results-summary" hidden></div>
+      <div id="results" class="results"></div>
+    </section>
+
+    <!-- ============ QURAN & TAFSIR ============ -->
+    <section id="panel-tafsir" class="panel" role="tabpanel">
+      <div class="search-hero">
+        <h2>Qur'an with tafsir from renowned scholars</h2>
+        <p class="muted">Choose a surah and verse, then read commentary side by side.</p>
+        <div class="tafsir-controls">
+          <label>Surah
+            <select id="surah-select"></select>
+          </label>
+          <label>Verse (Ayah)
+            <select id="ayah-select"></select>
+          </label>
+          <label>Tafsir
+            <select id="tafsir-select"></select>
+          </label>
+          <button id="load-tafsir" class="btn-primary">Read</button>
+        </div>
+        <div class="ayah-nav">
+          <button id="prev-ayah" class="btn-ghost">‹ Previous verse</button>
+          <button id="next-ayah" class="btn-ghost">Next verse ›</button>
+        </div>
+      </div>
+      <div id="tafsir-output" class="tafsir-output"></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <p><strong>Please note:</strong> texts are retrieved from open community-maintained sources
+      (Hadith API, Thaqalayn.net, AlQuran.cloud, Tafsir API). Gradings shown are those recorded by the
+      respective source. For religious rulings, always consult qualified scholars and verified printed editions.</p>
+    <p class="muted">Al-Miftah is an independent, non-sectarian reference tool. It presents narrations from
+      Sunni and Shia collections side by side for study and comparison.</p>
+  </footer>
+
+  <script src="js/quran-meta.js"></script>
+  <script src="js/sources.js"></script>
+  <script src="js/search-smart.js"></script>
+  <script src="js/app.js"></script>
+</body>
+</html>

@@ -88,23 +88,34 @@ const hadithState = {
 };
 
 /* ---------- pro index (built by GitHub Action; auto-detected) ---------- */
-const DATA_BASE = "data";
-const proState = { manifest: null, shiaDocs: null, semantic: false };
+// Preferred: an index deployed next to the app (GitHub Pages). Fallback: the same
+// index published to the repo's `data` branch and served by the free jsDelivr CDN,
+// which lets the app run from anywhere — including a local file — with no hosting.
+let DATA_BASE = "data";
+const CDN_DATA_BASE = "https://cdn.jsdelivr.net/gh/simple905boy-a11y/rtu@data";
+const proState = { manifest: null, shiaDocs: null, semantic: false, viaCdn: false };
 
 async function initPro() {
-  try {
-    const r = await fetch(`${DATA_BASE}/manifest.json`, { cache: "no-store" });
-    if (!r.ok) return;
-    proState.manifest = await r.json();
-  } catch { return; }
+  for (const base of [DATA_BASE, CDN_DATA_BASE]) {
+    try {
+      const r = await fetch(`${base}/manifest.json`, { cache: "no-store" });
+      if (!r.ok) continue;
+      proState.manifest = await r.json();
+      DATA_BASE = base;
+      proState.viaCdn = base === CDN_DATA_BASE;
+      break;
+    } catch { /* try the next source */ }
+  }
+  if (!proState.manifest) return;
   const m = proState.manifest;
   const toggle = $("#semantic-toggle");
   if (m.embeddings) toggle.hidden = false;
   const badge = document.createElement("div");
   badge.className = "pro-badge";
   badge.innerHTML = `⚡ Search index active (built ${new Date(m.built).toLocaleDateString()})` +
-    (m.shia ? ` · Shia corpus mirrored locally (${m.shia.count.toLocaleString()} hadith)` : "") +
-    (m.embeddings ? " · AI semantic search available" : "");
+    (m.shia ? ` · Shia corpus mirrored (${m.shia.count.toLocaleString()} hadith)` : "") +
+    (m.embeddings ? " · AI semantic search available" : "") +
+    (proState.viaCdn ? " · served via jsDelivr CDN" : "");
   $("#panel-hadith .search-hero").appendChild(badge);
 }
 
@@ -121,11 +132,16 @@ $("#semantic-toggle").addEventListener("click", () => {
 
 async function ensureShiaLocal() {
   if (proState.shiaDocs) return proState.shiaDocs;
-  setStatus("Loading Shia corpus (one-time, cached)…");
-  const data = await cachedFetchJSON(`${DATA_BASE}/shia.json`);
-  proState.shiaDocs = data.docs || [];
-  feedVocabulary(proState.shiaDocs.map((d) => d.text));
-  return proState.shiaDocs;
+  const shards = proState.manifest?.shia?.shards || ["shia.json"];
+  const docs = [];
+  for (let i = 0; i < shards.length; i++) {
+    setStatus(`Loading Shia corpus (part ${i + 1} of ${shards.length}, one-time — cached for future searches)…`);
+    const data = await cachedFetchJSON(`${DATA_BASE}/${shards[i]}`);
+    docs.push(...(data.docs || []));
+  }
+  proState.shiaDocs = docs;
+  feedVocabulary(docs.map((d) => d.text));
+  return docs;
 }
 
 /* ---------- collections picker ---------- */

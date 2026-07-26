@@ -10,7 +10,7 @@ on:
     - cron: "0 3 1 * *"
 
 permissions:
-  contents: read
+  contents: write   # publishes the built index to the `data` branch
   pages: write
   id-token: write
 
@@ -62,6 +62,22 @@ jobs:
         with:
           path: _site/data
           key: almiftah-index-${{ steps.period.outputs.month }}-${{ hashFiles('pipeline/build.mjs') }}
+
+      # Publishes the index to a standalone `data` branch, which the free jsDelivr
+      # CDN serves. The app falls back to that source, so it works even when
+      # GitHub Pages is unavailable. Force-pushed as a single orphan commit so the
+      # branch never accumulates old copies of the index.
+      - name: Publish index to data branch
+        run: |
+          cd _site/data
+          git init -q -b data
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add -A
+          git commit -qm "Search index built $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+          git push -qf "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" data:data
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Assemble site
         run: |

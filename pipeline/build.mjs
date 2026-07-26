@@ -183,8 +183,16 @@ for (const id of SUNNI) {
 try {
   const { docs, bookNames } = await buildShia();
   if (docs.length) {
-    await writeFile(join(OUT, "shia.json"), JSON.stringify({ docs }));
-    manifest.shia = { count: docs.length, books: bookNames };
+    // Sharded so every file stays well under jsDelivr's 20 MB per-file ceiling,
+    // which is what lets the app load this index straight from the CDN.
+    const SHARD = 6000;
+    const shards = [];
+    for (let i = 0; i < docs.length; i += SHARD) {
+      const name = `shia-${shards.length}.json`;
+      await writeFile(join(OUT, name), JSON.stringify({ docs: docs.slice(i, i + SHARD) }));
+      shards.push(name);
+    }
+    manifest.shia = { count: docs.length, books: bookNames, shards };
     manifest.collections.shia = { count: docs.length };
     if (embed) {
       const bin = await embedCollection(embed, docs.map((d) => d.text), "shia");

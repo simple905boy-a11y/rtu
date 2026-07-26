@@ -44,7 +44,7 @@ jobs:
 
       - name: Restore built index
         id: index-cache
-        uses: actions/cache@v4
+        uses: actions/cache/restore@v4
         with:
           path: _site/data
           key: almiftah-index-${{ steps.period.outputs.month }}-${{ hashFiles('pipeline/build.mjs') }}
@@ -53,6 +53,15 @@ jobs:
         if: steps.index-cache.outputs.cache-hit != 'true'
         working-directory: pipeline
         run: node build.mjs --out ../_site/data
+
+      # Saved immediately after the build, not as a post-job step: a failure in a
+      # later step (e.g. publishing) must not discard 20 minutes of embedding work.
+      - name: Save built index
+        if: steps.index-cache.outputs.cache-hit != 'true'
+        uses: actions/cache/save@v4
+        with:
+          path: _site/data
+          key: almiftah-index-${{ steps.period.outputs.month }}-${{ hashFiles('pipeline/build.mjs') }}
 
       - name: Assemble site
         run: |

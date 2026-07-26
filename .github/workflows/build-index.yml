@@ -1,0 +1,55 @@
+name: Build search index & deploy site
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/islamic-hadees-tafseer-app-r5se0d]
+  schedule:
+    # Rebuild monthly so the index tracks upstream corrections.
+    # (Scheduled runs only fire once this workflow is on the default branch.)
+    - cron: "0 3 1 * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pipeline dependencies
+        working-directory: pipeline
+        run: npm install --no-fund --no-audit
+
+      - name: Build index (Shia mirror + semantic embeddings)
+        working-directory: pipeline
+        run: node build.mjs --out ../_site/data
+
+      - name: Assemble site
+        run: |
+          cp index.html _site/
+          cp -r css js _site/
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

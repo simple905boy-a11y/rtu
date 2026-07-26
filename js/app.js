@@ -87,6 +87,47 @@ const hadithState = {
   lastQuery: ""
 };
 
+/* ---------- pro index (built by GitHub Action; auto-detected) ---------- */
+const DATA_BASE = "data";
+const proState = { manifest: null, shiaDocs: null, semantic: false };
+
+async function initPro() {
+  try {
+    const r = await fetch(`${DATA_BASE}/manifest.json`, { cache: "no-store" });
+    if (!r.ok) return;
+    proState.manifest = await r.json();
+  } catch { return; }
+  const m = proState.manifest;
+  const toggle = $("#semantic-toggle");
+  if (m.embeddings) toggle.hidden = false;
+  const badge = document.createElement("div");
+  badge.className = "pro-badge";
+  badge.innerHTML = `⚡ Search index active (built ${new Date(m.built).toLocaleDateString()})` +
+    (m.shia ? ` · Shia corpus mirrored locally (${m.shia.count.toLocaleString()} hadith)` : "") +
+    (m.embeddings ? " · AI semantic search available" : "");
+  $("#panel-hadith .search-hero").appendChild(badge);
+}
+
+$("#semantic-toggle").addEventListener("click", () => {
+  proState.semantic = !proState.semantic;
+  const t = $("#semantic-toggle");
+  t.classList.toggle("active", proState.semantic);
+  t.textContent = `🧠 AI Semantic: ${proState.semantic ? "on" : "off"}`;
+  $("#search-input").placeholder = proState.semantic
+    ? "Ask by meaning… e.g. “treating parents kindly”"
+    : "Search hadith… (English or اردو, e.g. “marriage”)";
+  if (hadithState.lastQuery) runSearch(hadithState.lastQuery);
+});
+
+async function ensureShiaLocal() {
+  if (proState.shiaDocs) return proState.shiaDocs;
+  setStatus("Loading Shia corpus (one-time, cached)…");
+  const data = await cachedFetchJSON(`${DATA_BASE}/shia.json`);
+  proState.shiaDocs = data.docs || [];
+  feedVocabulary(proState.shiaDocs.map((d) => d.text));
+  return proState.shiaDocs;
+}
+
 /* ---------- collections picker ---------- */
 function renderCollectionsPicker() {
   const list = $("#collections-list");
@@ -183,9 +224,11 @@ async function ensureUrdu(col, entry) {
   }
 }
 
-function searchSunni(col, entry, expanded, useUrdu) {
+function scoreSunni(entry, expanded, useUrdu) {
   const out = [];
-  for (const h of entry.hadiths) {
+  const hs = entry.hadiths;
+  for (let i = 0; i < hs.length; i++) {
+    const h = hs[i];
     if (h._n === undefined) h._n = smartNormalize(h.text);
     let urduText = null;
     if (useUrdu && entry.urdu) {
@@ -193,26 +236,61 @@ function searchSunni(col, entry, expanded, useUrdu) {
       if (urduText && h._nu === undefined) h._nu = smartNormalize(urduText);
     }
     const s = smartMatch([h._n, urduText ? h._nu : null], expanded);
-    if (s > 0) {
-      out.push({
-        score: s,
-        collection: appLang === "ur" ? col.urduName : col.name,
-        colId: col.id,
-        number: h.hadithnumber,
-        book: h.reference ? h.reference.book : null,
-        inBookRef: h.reference ? h.reference.hadith : null,
-        text: h.text,
-        urdu: urduText,
-        grades: (h.grades || []).map((g) => ({ by: g.name, grade: g.grade })),
-        link: `https://sunnah.com/${col.sunnahSlug}:${h.hadithnumber}`
-      });
-    }
+    if (s > 0) out.push({ idx: i, kw: s });
   }
-  out.sort((a, b) => b.score - a.score);
   return out;
 }
 
-/* ---------- Shia: Thaqalayn API ---------- */
+function buildSunniHit(col, entry, idx, score, sim, useUrdu) {
+  const h = entry.hadiths[idx];
+  return {
+    score,
+    sim,
+    collection: appLang === "ur" ? col.urduName : col.name,
+    colId: col.id,
+    number: h.hadithnumber,
+    book: h.reference ? h.reference.book : null,
+    inBookRef: h.reference ? h.reference.hadith : null,
+    text: h.text,
+    urdu: useUrdu && entry.urdu ? entry.urdu.get(String(h.hadithnumber)) || null : null,
+    grades: (h.grades || []).map((g) => ({ by: g.name, grade: g.grade })),
+    link: `https://sunnah.com/${col.sunnahSlug}:${h.hadithnumber}`
+  };
+}
+
+/* Blend keyword and semantic scores; a doc surfacing on either channel is kept. */
+const MAX_HITS_PER_COLLECTION = 200;
+function mergeScores(kwArr, semMap) {
+  const m = new Map(kwArr.map((r) => [r.idx, { kw: r.kw, cos: 0 }]));
+  if (semMap) {
+    for (const [idx, cos] of semMap) {
+      const e = m.get(idx);
+      if (e) e.cos = cos;
+      else m.set(idx, { kw: 0, cos });
+    }
+  }
+  return [...m.entries()]
+    .map(([idx, { kw, cos }]) => ({ idx, score: kw + cos * 60, sim: cos }))
+    .sort((a, b) => b.score - a.score)
+    .slice(0, MAX_HITS_PER_COLLECTION);
+}
+
+/* ---------- Shia: local mirror (pro index) or live Thaqalayn API ---------- */
+function scoreShiaLocal(docs, expanded) {
+  const out = [];
+  for (let i = 0; i < docs.length; i++) {
+    const d = docs[i];
+    if (d._n === undefined) d._n = smartNormalize(d.text);
+    if (d._na === undefined) d._na = smartNormalize(d.arabic);
+    const s = smartMatch([d._n, d._na], expanded);
+    if (s > 0) out.push({ idx: i, kw: s });
+  }
+  return out;
+}
+function buildShiaHit(docs, idx, score, sim) {
+  return { ...docs[idx], colId: "thaqalayn", score, sim };
+}
+
 async function searchShia(query) {
   const url = `${THAQALAYN_API}/query?q=${encodeURIComponent(query)}`;
   const res = await fetch(url);
@@ -254,6 +332,28 @@ async function runSearch(query) {
   const errors = [];
   let expanded = expandQuery(query); // pre-vocabulary pass (synonyms work immediately)
 
+  // Semantic channel: embed the query in-browser (only when toggled on and the index exists).
+  let qvec = null;
+  if (proState.semantic && proState.manifest?.embeddings) {
+    try {
+      qvec = await semQueryVec(query, (m) => setStatus(m));
+    } catch (e) {
+      errors.push(`AI semantic engine could not load (${e.message}) — showing keyword results only.`);
+    }
+    if (token !== searchToken) return;
+  }
+
+  async function semanticFor(colId, count) {
+    if (!qvec || !proState.manifest?.collections?.[colId]) return null;
+    try {
+      const vectors = await semVectors(DATA_BASE, colId, count);
+      return semTop(vectors, qvec);
+    } catch (e) {
+      errors.push(`Semantic index for ${colId} unavailable: ${e.message}`);
+      return null;
+    }
+  }
+
   if (wantSunni) {
     for (const col of selectedSunni()) {
       try {
@@ -261,7 +361,10 @@ async function runSearch(query) {
         if (useUrdu) await ensureUrdu(col, entry);
         if (token !== searchToken) return; // superseded by a newer search
         expanded = expandQuery(query);     // re-expand now that vocabulary includes this corpus
-        const hits = searchSunni(col, entry, expanded, useUrdu);
+        const kw = scoreSunni(entry, expanded, useUrdu);
+        const sem = await semanticFor(col.id, entry.hadiths.length);
+        const merged = mergeScores(kw, sem);
+        const hits = merged.map((m) => buildSunniHit(col, entry, m.idx, m.score, m.sim, useUrdu));
         if (hits.length) sunniGroups.push({ col, hits, urduMissing: useUrdu && entry.urduStatus === "unavailable" });
       } catch (e) {
         errors.push(`Could not load ${col.name}: ${e.message}`);
@@ -271,17 +374,30 @@ async function runSearch(query) {
 
   let shiaHits = [];
   if (wantShia) {
-    setStatus("Searching Shia collections via Thaqalayn…");
-    try {
-      // Ask the API with the primary term, then re-rank with the smart matcher
-      // (matches English text and, for Urdu/Arabic-script queries, the Arabic original).
-      shiaHits = await searchShia(expanded.tokens[0] || query);
-      shiaHits = shiaHits
-        .map((h) => ({ ...h, score: smartMatch([smartNormalize(h.text), smartNormalize(h.arabic)], expanded) }))
-        .filter((h) => h.score > 0)
-        .sort((a, b) => b.score - a.score);
-    } catch (e) {
-      errors.push(`Shia source (thaqalayn-api.net) is unreachable right now — please retry shortly. (${e.message})`);
+    if (proState.manifest?.shia) {
+      try {
+        const docs = await ensureShiaLocal();
+        if (token !== searchToken) return;
+        expanded = expandQuery(query);
+        const kw = scoreShiaLocal(docs, expanded);
+        const sem = await semanticFor("shia", docs.length);
+        shiaHits = mergeScores(kw, sem).map((m) => buildShiaHit(docs, m.idx, m.score, m.sim));
+      } catch (e) {
+        errors.push(`Could not load the local Shia corpus: ${e.message}`);
+      }
+    } else {
+      setStatus("Searching Shia collections via Thaqalayn…");
+      try {
+        // Ask the API with the primary term, then re-rank with the smart matcher
+        // (matches English text and, for Urdu/Arabic-script queries, the Arabic original).
+        shiaHits = await searchShia(expanded.tokens[0] || query);
+        shiaHits = shiaHits
+          .map((h) => ({ ...h, score: smartMatch([smartNormalize(h.text), smartNormalize(h.arabic)], expanded) }))
+          .filter((h) => h.score > 0)
+          .sort((a, b) => b.score - a.score);
+      } catch (e) {
+        errors.push(`Shia source (thaqalayn-api.net) is unreachable right now — please retry shortly. (${e.message})`);
+      }
     }
   }
   if (token !== searchToken) return;
@@ -394,6 +510,7 @@ function hadithCard(h, terms) {
   for (const g of h.grades.slice(0, 3)) {
     refParts.push(`<span class="grade-tag ${gradeClass(g.grade)}" title="Graded by ${escapeHtml(g.by || "source")}">${escapeHtml(g.grade || "")}${g.by ? " — " + escapeHtml(g.by) : ""}</span>`);
   }
+  if (h.sim > 0.3) refParts.push(`<span class="ref-tag sim-tag" title="Semantic similarity to your query">🧠 ${Math.round(h.sim * 100)}% meaning</span>`);
 
   const citation = `${h.collection}${h.number !== "" ? " " + h.number : ""}${h.book != null ? ` (Book ${h.book}${h.inBookRef != null ? ", Hadith " + h.inBookRef : ""})` : ""}`;
 
@@ -561,3 +678,4 @@ function sanitizeTafsirHtml(html) {
 initLang();
 renderCollectionsPicker();
 initTafsirControls();
+initPro();

@@ -194,6 +194,14 @@ main { max-width: 1100px; margin: 0 auto; padding: 28px 20px 60px; }
   font-size: 0.9rem; font-weight: 600;
 }
 .smart-note { font-weight: 400; font-size: 0.8rem; color: var(--ink-soft); margin-top: 4px; }
+.semantic-chip.active { background: var(--gold); border-color: var(--gold); color: var(--green-900); }
+.sim-tag { background: var(--gold-soft); color: #8a6d1a; }
+[data-theme="dark"] .sim-tag { color: var(--gold); }
+.pro-badge {
+  margin: 10px auto 0; display: inline-block;
+  font-size: 0.78rem; color: var(--ink-soft);
+  border: 1px dashed var(--line); border-radius: 999px; padding: 4px 14px;
+}
 .results { display: flex; flex-direction: column; gap: 26px; }
 
 .sect-group h3 {

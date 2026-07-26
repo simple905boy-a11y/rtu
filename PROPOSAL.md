@@ -43,17 +43,21 @@ or hosted free on GitHub Pages.
 
 ---
 
-## Phase 2 — Proper search backend (recommended next step)
-1. **Ingest all collections into one database** (PostgreSQL) with a normalized schema:
-   `collection → book → chapter → hadith (arabic, english, urdu, grades[], refs[])`.
-2. **Full-text search engine** (Meilisearch or Typesense — both open source):
-   typo tolerance, synonyms (nikah = marriage, zakat = charity/alms), Arabic stemming,
-   instant (<50 ms) results, relevance ranking.
-3. **API layer** (FastAPI or Node/Express) with endpoints like
-   `GET /search?q=marriage&sect=all&grade=sahih`.
-4. Additional sources behind keys: **sunnah.com API** (official, richer metadata),
-   Urdu translations, Nahj al-Balagha, Sahifa al-Sajjadiyya.
-5. Cost: runs on a $5–10/month VPS or free tiers (Railway/Fly.io + Meilisearch Cloud free tier).
+## Phase 2 — Semantic search ✅ SHIPPED (serverless, still $0)
+Instead of a paid backend, Phase 2 was delivered with a **free GitHub Actions pipeline**
+(`pipeline/build.mjs` + `.github/workflows/build-index.yml`):
+1. The Action downloads every collection, **mirrors the Shia corpus into static JSON**
+   (removing the runtime dependency on the community API), and computes a semantic
+   embedding for every hadith with the open-source **all-MiniLM-L6-v2** model,
+   stored as compact int8 vectors (~1.5 KB per 4 hadith).
+2. The site + index deploy to **GitHub Pages** automatically and rebuild monthly.
+3. In the app, an **🧠 AI Semantic toggle** embeds the query in the browser
+   (transformers.js, one-time ~25 MB model download, cached) and ranks by cosine
+   similarity, blended with the keyword score — meaning-based search with no server.
+
+Remaining ideas for a paid backend (only if traffic outgrows Pages): Meilisearch for
+sub-50 ms typo-tolerant search, the official sunnah.com API, Nahj al-Balagha,
+Sahifa al-Sajjadiyya, and licensed Shia tafsir (al-Mizan).
 
 ## Phase 3 — Mobile apps & accounts
 - **Flutter** (one codebase → Android + iOS) reusing the Phase 2 API.

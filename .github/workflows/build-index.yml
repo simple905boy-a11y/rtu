@@ -1,0 +1,76 @@
+name: Build search index & deploy site
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main, claude/islamic-hadees-tafseer-app-r5se0d]
+  schedule:
+    # Rebuild monthly so the index tracks upstream corrections.
+    # (Scheduled runs only fire once this workflow is on the default branch.)
+    - cron: "0 3 1 * *"
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  build-deploy:
+    runs-on: ubuntu-latest
+    timeout-minutes: 180
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+
+      - name: Install pipeline dependencies
+        working-directory: pipeline
+        run: npm install --no-fund --no-audit
+
+      # Embedding ~69k hadith takes ~20 min, so keep the result for the rest of
+      # the month. Re-running (e.g. after a deploy-only failure) then costs seconds.
+      - name: Cache period
+        id: period
+        run: echo "month=$(date -u +%Y-%m)" >> "$GITHUB_OUTPUT"
+
+      - name: Restore built index
+        id: index-cache
+        uses: actions/cache@v4
+        with:
+          path: _site/data
+          key: almiftah-index-${{ steps.period.outputs.month }}-${{ hashFiles('pipeline/build.mjs') }}
+
+      - name: Build index (Shia mirror + semantic embeddings)
+        if: steps.index-cache.outputs.cache-hit != 'true'
+        working-directory: pipeline
+        run: node build.mjs --out ../_site/data
+
+      - name: Assemble site
+        run: |
+          cp index.html _site/
+          cp -r css js _site/
+
+      # Keeps the built index downloadable even if the Pages publish step fails.
+      - uses: actions/upload-artifact@v4
+        with:
+          name: almiftah-site
+          path: _site
+          retention-days: 7
+
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@v4

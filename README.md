@@ -17,6 +17,12 @@ A professional, fast Islamic reference web app:
 - 🧠 **Smart search** — understands synonyms (*nikah = marriage = شادی*), fixes typos
   (*marrige → marriage*), stems plurals, ignores filler words, and matches across
   scripts: search in English or Urdu, find results in both.
+- 🤖 **AI semantic search** (no server, still free) — a GitHub Action pre-computes an
+  embedding for every hadith with an open-source model (all-MiniLM-L6-v2); the app embeds
+  your question in the browser and ranks results **by meaning**, so
+  *"treating parents kindly"* finds hadith that use none of those words. It also mirrors
+  the whole Shia corpus as static files, so results no longer depend on a third-party
+  API being online.
 - ✨ Dark mode, Arabic typography, mobile-friendly, smooth animations. No login, no tracking.
 
 ## Run it
@@ -29,7 +35,17 @@ python3 -m http.server 8000
 # then open http://localhost:8000
 ```
 
-Or deploy free on **GitHub Pages**: Settings → Pages → Deploy from branch → this branch, `/ (root)`.
+### Deploy free on GitHub Pages (recommended — enables AI search)
+
+1. Repo **Settings → Pages → Source: GitHub Actions**.
+2. Run the **"Build search index & deploy site"** workflow (Actions tab → Run workflow),
+   or just push to the branch — it runs automatically.
+3. The workflow downloads all collections, mirrors the Shia corpus, computes semantic
+   embeddings (takes a while on the first run), and deploys everything to
+   `https://<username>.github.io/rtu/`. It re-runs monthly to stay current.
+
+Without the workflow (e.g. opening `index.html` locally) the app still fully works —
+it just uses live CDN/API sources and hides the AI toggle.
 
 > Note: the app fetches its texts from public sources over the internet
 > (jsDelivr CDN, AlQuran.cloud, thaqalayn-api.net), so it needs to be online.
@@ -43,7 +59,10 @@ css/style.css     design system (light/dark, Islamic green & gold)
 js/sources.js     data-source configuration (collections, tafsir editions, translations)
 js/quran-meta.js  surah names + verse counts
 js/search-smart.js synonym/typo/stemming query engine
+js/search-semantic.js in-browser query embedding + vector ranking
 js/app.js         app logic, caching, rendering
+pipeline/build.mjs index builder (Shia mirror + embeddings), runs in GitHub Actions
+.github/workflows/build-index.yml free scheduled build + Pages deploy
 PROPOSAL.md       full roadmap (backend search, mobile apps, more sources)
 ```
 

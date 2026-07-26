@@ -94,11 +94,19 @@ jobs:
           path: _site
           retention-days: 7
 
-      - uses: actions/configure-pages@v5
+      # These three only apply when Pages is set to "GitHub Actions" as its source.
+      # With Pages serving straight from the main branch (or switched off), they are
+      # skipped instead of failing the run: the index has already been published to
+      # the data branch above, which is what the app actually reads.
+      - id: pages
+        uses: actions/configure-pages@v5
+        continue-on-error: true
 
       - uses: actions/upload-pages-artifact@v3
+        if: steps.pages.outcome == 'success'
         with:
           path: _site
 
       - id: deployment
+        if: steps.pages.outcome == 'success'
         uses: actions/deploy-pages@v4

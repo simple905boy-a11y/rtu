@@ -817,9 +817,33 @@ function renderBooks(filter = "") {
       <p class="book-about">${escapeHtml(appLang === "ur" && b.aboutUr ? b.aboutUr : b.about)}</p>
       ${b.note ? `<div class="book-note">⚠ ${escapeHtml(b.note)}</div>` : ""}
       <div class="book-actions">
-        <a class="book-open" href="${escapeHtml(b.url)}" target="_blank" rel="noopener">کھولیں · Open ↗</a>
+        ${b.archiveId ? `<button type="button" class="book-read">یہیں پڑھیں · Read here</button>` : ""}
+        <a class="book-open" href="${escapeHtml(b.url)}" target="_blank" rel="noopener">Open ↗</a>
         <span class="book-host">${escapeHtml(b.host)}</span>
       </div>`;
+
+    // Reader is created on demand: eight iframes loading at once would be slow,
+    // and most visitors open one book.
+    const readBtn = card.querySelector(".book-read");
+    if (readBtn) {
+      readBtn.addEventListener("click", () => {
+        const open = card.querySelector(".book-reader");
+        if (open) {
+          open.remove();
+          readBtn.textContent = "یہیں پڑھیں · Read here";
+          return;
+        }
+        const wrap = document.createElement("div");
+        wrap.className = "book-reader";
+        wrap.innerHTML = `<iframe src="https://archive.org/embed/${encodeURIComponent(b.archiveId)}"
+            title="${escapeHtml(b.title)}" loading="lazy" allowfullscreen
+            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+          <div class="book-reader-note">archive.org پر محفوظ — hosted by archive.org</div>`;
+        card.appendChild(wrap);
+        readBtn.textContent = "بند کریں · Close";
+        wrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      });
+    }
     list.appendChild(card);
   }
 }

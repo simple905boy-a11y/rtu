@@ -356,6 +356,21 @@ mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding
 .book-open { font-weight: 700; font-size: 0.85rem; color: var(--green-600); text-decoration: none; }
 .book-open:hover { text-decoration: underline; }
 .book-host { font-size: 0.72rem; color: var(--ink-soft); }
+.book-read {
+  border: 0; background: var(--green-700); color: #fff;
+  padding: 7px 14px; border-radius: 9px; font-weight: 700; font-size: 0.8rem;
+  transition: background 0.2s;
+}
+.book-read:hover { background: var(--green-600); }
+.book-reader { margin-top: 12px; animation: fadeIn 0.25s ease; }
+.book-reader iframe {
+  width: 100%; height: 520px; border: 1px solid var(--line);
+  border-radius: 10px; background: #000;
+}
+.book-reader-note { font-size: 0.72rem; color: var(--ink-soft); margin-top: 6px; text-align: center; }
+/* A book being read gets the full width of the grid. */
+.book-card:has(.book-reader) { grid-column: 1 / -1; }
+@media (max-width: 640px) { .book-reader iframe { height: 400px; } }
 
 /* ---------- footer ---------- */
 .site-footer {

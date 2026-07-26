@@ -1,8 +1,15 @@
 /* ================= Library =================
    These are complete published books, not hadith collections, and no free
-   machine-readable edition of them exists — so the app links to the copies
-   hosted by archive.org and Dawat-e-Islami rather than reproducing them.
-   Opening a book hands it to that site's own reader. */
+   machine-readable edition of them exists.
+
+   The app does not copy them. Most are still in copyright, and republishing
+   them from this repository would put that liability on its owner. Instead
+   each archive.org title is shown through archive.org's own embed reader
+   (`/embed/<id>`, a facility they provide for exactly this), so the book opens
+   inside the app while remaining hosted and served by archive.org.
+
+   Consequence to remember: these are page scans, so the app's hadith search
+   cannot search their contents. */
 "use strict";
 
 const LIBRARY = [
@@ -14,7 +21,8 @@ const LIBRARY = [
     aboutUr: "خواتین کے لیے نماز کا مکمل طریقہ — طہارت، اوقات اور عام غلطیاں۔",
     topics: ["namaz", "prayer", "women", "نماز", "عورت"],
     url: "https://archive.org/details/islami-behno-ki-namaz_202307",
-    host: "archive.org"
+    host: "archive.org",
+    archiveId: "islami-behno-ki-namaz_202307"
   },
   {
     urdu: "حیا اور پردہ",
@@ -24,7 +32,8 @@ const LIBRARY = [
     aboutUr: "حیا، پردے کے احکام اور اس بارے میں عام سوالات کے جوابات۔",
     topics: ["haya", "parda", "hijab", "modesty", "حیا", "پردہ"],
     url: "https://archive.org/details/haya-aur-parda",
-    host: "archive.org"
+    host: "archive.org",
+    archiveId: "haya-aur-parda"
   },
   {
     urdu: "موت کا منظر",
@@ -34,7 +43,8 @@ const LIBRARY = [
     aboutUr: "موت، قبر اور آخرت کے احوال قرآن و حدیث کی روشنی میں۔",
     topics: ["maut", "death", "grave", "akhirat", "موت", "قبر", "آخرت"],
     url: "https://archive.org/details/maut-ka-manzar",
-    host: "archive.org"
+    host: "archive.org",
+    archiveId: "maut-ka-manzar"
   },
   {
     urdu: "قصص الانبیاء",
@@ -44,7 +54,8 @@ const LIBRARY = [
     aboutUr: "حضرت آدم علیہ السلام سے نبی کریم ﷺ تک انبیاء کے واقعات۔",
     topics: ["qisas", "anbiya", "prophets", "stories", "قصص", "انبیاء"],
     url: "https://archive.org/details/Qassas-ul-ambiya-ImamIbnKaseerInUrdu",
-    host: "archive.org"
+    host: "archive.org",
+    archiveId: "Qassas-ul-ambiya-ImamIbnKaseerInUrdu"
   },
   {
     urdu: "فضائلِ اعمال",
@@ -54,7 +65,8 @@ const LIBRARY = [
     aboutUr: "نیک اعمال کے فضائل پر مشہور کتاب۔",
     topics: ["fazail", "amaal", "virtues", "deeds", "فضائل", "اعمال"],
     url: "https://archive.org/details/Fazail-e-Amal",
-    host: "archive.org"
+    host: "archive.org",
+    archiveId: "Fazail-e-Amal"
   },
   {
     urdu: "فضائلِ صدقات",
@@ -65,6 +77,7 @@ const LIBRARY = [
     topics: ["fazail", "sadaqat", "charity", "zakat", "فضائل", "صدقات", "خیرات"],
     url: "https://archive.org/details/Fazail-e-Amal",
     host: "archive.org",
+    archiveId: "Fazail-e-Amal",
     note: "جلد ۲ میں — volume 2 of the linked set"
   },
   {
@@ -76,6 +89,7 @@ const LIBRARY = [
     topics: ["tareekh", "history", "islami", "تاریخ", "اسلامی"],
     url: "https://archive.org/details/IslamicBooksHistoryBooksInUrdu",
     host: "archive.org",
+    archiveId: "IslamicBooksHistoryBooksInUrdu",
     note: "مجموعے کے اندر — inside a collection, not a direct link"
   },
   {

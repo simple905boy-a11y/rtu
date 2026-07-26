@@ -3,7 +3,10 @@ name: Build search index & deploy site
 on:
   workflow_dispatch:
   push:
-    branches: [main, claude/islamic-hadees-tafseer-app-r5se0d]
+    # Only the default branch builds: it is the branch Pages deploys from, and a
+    # second branch building in parallel just cancels this one via the shared
+    # concurrency group below.
+    branches: [main]
   schedule:
     # Rebuild monthly so the index tracks upstream corrections.
     # (Scheduled runs only fire once this workflow is on the default branch.)

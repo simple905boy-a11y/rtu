@@ -93,14 +93,28 @@ const LIBRARY = [
     note: "مجموعے کے اندر — inside a collection, not a direct link"
   },
   {
-    urdu: "مثالی شوہر",
-    title: "Misali Shohar",
-    author: "",
-    about: "The ideal husband — rights and conduct in marriage. Search the title in the Dawat-e-Islami library.",
-    aboutUr: "شوہر کے حقوق و آداب۔ دعوتِ اسلامی کی لائبریری میں عنوان تلاش کریں۔",
-    topics: ["shohar", "husband", "marriage", "nikah", "شوہر", "شادی", "نکاح"],
-    url: "https://www.dawateislami.net/bookslibrary/",
-    host: "dawateislami.net",
-    note: "لائبریری میں تلاش کریں — library index, search the title"
+    urdu: "مثالی بیوی، مثالی شوہر",
+    title: "Misali Biwi, Misali Shohar",
+    author: "Dawat-e-Islami",
+    about: "The ideal wife and the ideal husband — rights and conduct in marriage.",
+    aboutUr: "بیوی اور شوہر کے حقوق و آداب۔",
+    topics: ["shohar", "biwi", "husband", "wife", "marriage", "nikah", "شوہر", "بیوی", "شادی", "نکاح"],
+    pdf: "books/misali-biwi-misali-shohar.pdf",
+    url: "books/misali-biwi-misali-shohar.pdf",
+    host: "اسی ایپ میں — in this app",
+    note: "اسکین شدہ صفحات — page scans, so the text inside cannot be searched"
+  },
+  {
+    urdu: "زبان کی حفاظت کی اہمیت",
+    title: "The Importance of Guarding the Tongue",
+    author: "Dawat-e-Islami",
+    about: "On the harms of unrestrained speech — backbiting, futile talk, and the accountability of every word.",
+    aboutUr: "بے قابو زبان کے نقصانات — غیبت، فضول گفتگو اور ہر لفظ کی جوابدہی۔",
+    topics: ["tongue", "zaban", "speech", "backbiting", "gheebat", "زبان", "غیبت", "گفتگو"],
+    pdf: "books/guarding-the-tongue.pdf",
+    url: "books/guarding-the-tongue.pdf",
+    host: "اسی ایپ میں — in this app",
+    // This one carries a real text layer, so its pages are searchable.
+    textIndex: "books/guarding-the-tongue.pages.json"
   }
 ];

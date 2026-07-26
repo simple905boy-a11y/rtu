@@ -796,14 +796,49 @@ function sanitizeTafsirHtml(html) {
 /* ================================================================
    LIBRARY
    ================================================================ */
+// Full text of the books that ship a text layer, loaded once, so a search can
+// report the pages a phrase appears on.
+const bookText = new Map();
+async function ensureBookText(b) {
+  if (!b.textIndex || bookText.has(b.textIndex)) return bookText.get(b.textIndex);
+  try {
+    const data = await cachedFetchJSON(b.textIndex);
+    const pages = (data.pages || []).map((p) => ({ ...p, _n: smartNormalize(p.text) }));
+    bookText.set(b.textIndex, pages);
+    return pages;
+  } catch {
+    bookText.set(b.textIndex, null);
+    return null;
+  }
+}
+
+function matchingPages(b, q) {
+  const pages = bookText.get(b.textIndex);
+  if (!pages || !q) return [];
+  const terms = q.split(/\s+/).filter(Boolean);
+  return pages
+    .filter((p) => terms.every((t) => p._n.includes(t)))
+    .slice(0, 6);
+}
+
 function renderBooks(filter = "") {
   const list = $("#books-list");
   if (!list) return;
   const q = smartNormalize(filter.trim());
+
+  // Pull in searchable book text on first use, then redraw with page hits.
+  if (q) {
+    const pending = LIBRARY.filter((b) => b.textIndex && !bookText.has(b.textIndex));
+    if (pending.length) {
+      Promise.all(pending.map(ensureBookText)).then(() => renderBooks($("#book-filter")?.value || ""));
+    }
+  }
+
   const shown = LIBRARY.filter((b) => {
     if (!q) return true;
     const hay = smartNormalize([b.title, b.urdu, b.author, b.about, b.aboutUr, ...(b.topics || [])].join(" "));
-    return q.split(/\s+/).every((t) => hay.includes(t));
+    if (q.split(/\s+/).every((t) => hay.includes(t))) return true;
+    return matchingPages(b, q).length > 0;
   });
 
   list.innerHTML = shown.length ? "" : `<div class="no-results">کوئی کتاب نہیں ملی — no book matched.</div>`;
@@ -816,8 +851,10 @@ function renderBooks(filter = "") {
       ${b.author ? `<div class="book-author">${escapeHtml(b.author)}</div>` : ""}
       <p class="book-about">${escapeHtml(appLang === "ur" && b.aboutUr ? b.aboutUr : b.about)}</p>
       ${b.note ? `<div class="book-note">⚠ ${escapeHtml(b.note)}</div>` : ""}
+      ${b.textIndex ? `<div class="book-searchable">🔍 اس کتاب میں تلاش ہو سکتی ہے — searchable inside</div>` : ""}
+      ${pageHitsHtml(b, q)}
       <div class="book-actions">
-        ${b.archiveId ? `<button type="button" class="book-read">یہیں پڑھیں · Read here</button>` : ""}
+        ${b.archiveId || b.pdf ? `<button type="button" class="book-read">یہیں پڑھیں · Read here</button>` : ""}
         <a class="book-open" href="${escapeHtml(b.url)}" target="_blank" rel="noopener">Open ↗</a>
         <span class="book-host">${escapeHtml(b.host)}</span>
       </div>`;
@@ -835,10 +872,13 @@ function renderBooks(filter = "") {
         }
         const wrap = document.createElement("div");
         wrap.className = "book-reader";
-        wrap.innerHTML = `<iframe src="https://archive.org/embed/${encodeURIComponent(b.archiveId)}"
-            title="${escapeHtml(b.title)}" loading="lazy" allowfullscreen
-            sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
-          <div class="book-reader-note">archive.org پر محفوظ — hosted by archive.org</div>`;
+        wrap.innerHTML = b.pdf
+          ? `<iframe src="${escapeHtml(b.pdf)}#view=FitH" title="${escapeHtml(b.title)}" loading="lazy"></iframe>
+             <div class="book-reader-note">اسی ایپ میں محفوظ — served by this app</div>`
+          : `<iframe src="https://archive.org/embed/${encodeURIComponent(b.archiveId)}"
+              title="${escapeHtml(b.title)}" loading="lazy" allowfullscreen
+              sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+             <div class="book-reader-note">archive.org پر محفوظ — hosted by archive.org</div>`;
         card.appendChild(wrap);
         readBtn.textContent = "بند کریں · Close";
         wrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
@@ -846,6 +886,20 @@ function renderBooks(filter = "") {
     }
     list.appendChild(card);
   }
+}
+
+// Page hits, each opening the PDF at that page.
+function pageHitsHtml(b, q) {
+  const hits = matchingPages(b, q);
+  if (!hits.length) return "";
+  const rows = hits.map((p) => {
+    const idx = p._n.indexOf(q.split(/\s+/)[0]);
+    const from = Math.max(0, idx - 60);
+    const snippet = p.text.slice(from, from + 180).replace(/\s+/g, " ").trim();
+    return `<a class="page-hit" href="${escapeHtml(b.pdf)}#page=${p.page}" target="_blank" rel="noopener">
+        <span class="page-no">صفحہ ${p.page}</span> ${escapeHtml(snippet)}…</a>`;
+  }).join("");
+  return `<div class="page-hits"><div class="page-hits-head">${hits.length} صفحات پر ملا — found on ${hits.length} page${hits.length === 1 ? "" : "s"}</div>${rows}</div>`;
 }
 
 function initBooks() {

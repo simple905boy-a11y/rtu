@@ -362,6 +362,24 @@ mark { background: var(--gold-soft); color: inherit; border-radius: 3px; padding
   transition: background 0.2s;
 }
 .book-read:hover { background: var(--green-600); }
+.book-searchable {
+  font-size: 0.72rem; color: var(--green-600); font-weight: 600;
+  background: var(--green-100); border-radius: 8px; padding: 5px 10px; align-self: flex-start;
+}
+.page-hits { border-top: 1px dashed var(--line); margin-top: 8px; padding-top: 8px; }
+.page-hits-head {
+  font-size: 0.72rem; color: var(--ink-soft); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px;
+}
+.page-hit {
+  display: block; font-size: 0.78rem; color: var(--ink); text-decoration: none;
+  padding: 6px 8px; border-radius: 8px; margin-bottom: 4px; background: var(--paper);
+}
+.page-hit:hover { background: var(--green-100); }
+.page-no {
+  font-weight: 700; color: var(--green-600); margin-inline-end: 6px;
+  font-family: "Noto Nastaliq Urdu", serif;
+}
 .book-reader { margin-top: 12px; animation: fadeIn 0.25s ease; }
 .book-reader iframe {
   width: 100%; height: 520px; border: 1px solid var(--line);

@@ -62,6 +62,25 @@ try {
 } catch (e) { console.log("! failed:", e.message); }
 
 console.log("\n" + "=".repeat(70));
+console.log("QURAN.COM — Urdu translations & tafsirs (second source)");
+console.log("=".repeat(70));
+for (const [label, url] of [
+  ["TRANSLATIONS", "https://api.quran.com/api/v4/resources/translations"],
+  ["TAFSIRS", "https://api.quran.com/api/v4/resources/tafsirs"]
+]) {
+  try {
+    const j = await get(url);
+    const rows = j.translations || j.tafsirs || [];
+    console.log(`\n-- ${label} (urdu/english only, of ${rows.length} total) --`);
+    for (const t of rows) {
+      const lang = t.language_name || "";
+      if (!["urdu", "english"].includes(lang)) continue;
+      console.log(`  id=${String(t.id).padEnd(5)} ${lang.padEnd(8)} ${t.name} — ${t.author_name || ""}`);
+    }
+  } catch (e) { console.log(`  ${label} failed: ${e.message}`); }
+}
+
+console.log("\n" + "=".repeat(70));
 console.log("SHIA BOOKS (thaqalayn-api) — already fully mirrored");
 console.log("=".repeat(70));
 try {

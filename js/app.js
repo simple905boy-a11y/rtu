@@ -18,6 +18,7 @@ function initLang() {
       appLang = b.dataset.lang;
       localStorage.setItem("almiftah-lang", appLang);
       applyLang();
+      fillTranslationSelect();
       pickDefaultTafsirForLang();
       if (hadithState.lastQuery) runSearch(hadithState.lastQuery);
       if (tafsirState.loaded) loadTafsir();
@@ -651,10 +652,32 @@ function initTafsirControls() {
   tafsirSel.innerHTML = html;
   pickDefaultTafsirForLang();
 
+  fillTranslationSelect();
+  $("#translation-select").addEventListener("change", () => {
+    localStorage.setItem("almiftah-translation-" + appLang, $("#translation-select").value);
+    if (tafsirState.loaded) loadTafsir();
+  });
+
   fillAyahSelect();
   $("#load-tafsir").addEventListener("click", loadTafsir);
   $("#prev-ayah").addEventListener("click", () => stepAyah(-1));
   $("#next-ayah").addEventListener("click", () => stepAyah(1));
+}
+
+// Lists the translations of the language being read, so an Urdu reader picks
+// between Urdu translations rather than scrolling past English ones.
+function fillTranslationSelect() {
+  const sel = $("#translation-select");
+  if (!sel) return;
+  const list = QURAN_TRANSLATIONS[appLang] || QURAN_TRANSLATIONS.en;
+  sel.innerHTML = list.map((t) => `<option value="${t.edition}">${t.label}</option>`).join("");
+  const saved = localStorage.getItem("almiftah-translation-" + appLang);
+  sel.value = list.some((t) => t.edition === saved) ? saved : defaultTranslation(appLang).edition;
+}
+function currentTranslation() {
+  const list = QURAN_TRANSLATIONS[appLang] || QURAN_TRANSLATIONS.en;
+  const chosen = $("#translation-select")?.value;
+  return list.find((t) => t.edition === chosen) || defaultTranslation(appLang);
 }
 function pickDefaultTafsirForLang() {
   const sel = $("#tafsir-select");
@@ -696,7 +719,10 @@ async function loadTafsir() {
   const out = $("#tafsir-output");
   out.innerHTML = `<div class="spinner"></div>`;
 
-  const editions = `quran-uthmani,${TRANSLATIONS.en.edition},${TRANSLATIONS.ur.edition}`;
+  // The chosen translation, plus the other language's default for comparison.
+  const chosen = currentTranslation();
+  const other = defaultTranslation(appLang === "ur" ? "en" : "ur");
+  const editions = `quran-uthmani,${chosen.edition},${other.edition}`;
   const verseP = fetch(`${QURAN_API}/ayah/${surah}:${ayah}/editions/${editions}`).then((r) => {
     if (!r.ok) throw new Error(`AlQuran.cloud HTTP ${r.status}`);
     return r.json();
@@ -709,11 +735,12 @@ async function loadTafsir() {
   const verseCard = document.createElement("div");
   verseCard.className = "verse-card";
   if (verseRes.status === "fulfilled") {
-    const [arabic, english, urdu] = verseRes.value.data;
+    const [arabic, primary, secondary] = verseRes.value.data;
     const translations = appLang === "ur"
-      ? `<div class="verse-urdu">${escapeHtml(urdu.text)} <span class="muted">— ${TRANSLATIONS.ur.label}</span></div>
-         <div class="verse-translation secondary-text">“${escapeHtml(english.text)}” <span class="muted">— ${TRANSLATIONS.en.label}</span></div>`
-      : `<div class="verse-translation">“${escapeHtml(english.text)}” <span class="muted">— ${TRANSLATIONS.en.label}</span></div>`;
+      ? `<div class="verse-urdu">${escapeHtml(primary.text)} <span class="muted">— ${escapeHtml(chosen.label)}</span></div>
+         <div class="verse-translation secondary-text">“${escapeHtml(secondary.text)}” <span class="muted">— ${escapeHtml(other.label)}</span></div>`
+      : `<div class="verse-translation">“${escapeHtml(primary.text)}” <span class="muted">— ${escapeHtml(chosen.label)}</span></div>
+         <div class="verse-urdu secondary-text">${escapeHtml(secondary.text)} <span class="muted">— ${escapeHtml(other.label)}</span></div>`;
     verseCard.innerHTML = `
       <div class="verse-ref">Surah ${surahMeta[0]} (${surah}) · Verse ${ayah}</div>
       <div class="verse-arabic">${escapeHtml(arabic.text)}</div>

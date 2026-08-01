@@ -1,0 +1,76 @@
+{
+  "built": "2026-08-01T05:51:13.078Z",
+  "dim": 384,
+  "embeddings": true,
+  "collections": {
+    "bukhari": {
+      "count": 7589
+    },
+    "muslim": {
+      "count": 7563
+    },
+    "abudawud": {
+      "count": 5274
+    },
+    "tirmidhi": {
+      "count": 3998
+    },
+    "nasai": {
+      "count": 5765
+    },
+    "ibnmajah": {
+      "count": 4343
+    },
+    "malik": {
+      "count": 1858
+    },
+    "shia": {
+      "count": 32531
+    }
+  },
+  "shia": {
+    "count": 32531,
+    "books": [
+      "Al-Amālī",
+      "Al-Amālī",
+      "Al-Kāfi",
+      "Al-Kāfi",
+      "Al-Kāfi",
+      "Al-Kāfi",
+      "Al-Kāfi",
+      "Al-Kāfi",
+      "Al-Kāfi",
+      "Al-Kāfi",
+      "Al-Khiṣāl",
+      "Al-Tawḥīd",
+      "Faḍaʾil al-Shīʿa",
+      "Kāmil al-Ziyārāt",
+      "Kitāb al-Ḍuʿafāʾ",
+      "Kitāb al-Ghayba",
+      "Kitāb al-Ghayba",
+      "Kitāb al-Muʾmin",
+      "Kitāb al-Zuhd",
+      "Maʿānī al-ʾAkhbār",
+      "Man Lā Yaḥḍuruh al-Faqīh",
+      "Man Lā Yaḥḍuruh al-Faqīh",
+      "Man Lā Yaḥḍuruh al-Faqīh",
+      "Man Lā Yaḥḍuruh al-Faqīh",
+      "Man Lā Yaḥḍuruh al-Faqīh",
+      "Muʿjam al-Aḥādīth al-Muʿtabara",
+      "Nahj al-Balāgha",
+      "Risālat al-Ḥuqūq",
+      "Ṣifāt al-Shīʿa",
+      "Thawāb al-Aʿmāl wa ʿiqāb al-Aʿmāl",
+      "ʿUyūn akhbār al-Riḍā",
+      "ʿUyūn akhbār al-Riḍā"
+    ],
+    "shards": [
+      "shia-0.json",
+      "shia-1.json",
+      "shia-2.json",
+      "shia-3.json",
+      "shia-4.json",
+      "shia-5.json"
+    ]
+  }
+}
